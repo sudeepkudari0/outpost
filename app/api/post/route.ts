@@ -28,8 +28,30 @@ export async function POST(request: NextRequest) {
     }
 
     if (publishingOption === "draft") {
+      // Ensure content is a string for Late API
+      let draftContent: string = "";
+      if (typeof content === "string") {
+        draftContent = content;
+      } else if (typeof content === "object" && content !== null) {
+        const firstPlatform = platforms?.[0]?.platform;
+        const byPlatform = (content as Record<string, unknown>)[firstPlatform];
+        if (typeof byPlatform === "string") draftContent = byPlatform;
+        else if (
+          byPlatform &&
+          typeof byPlatform === "object" &&
+          typeof (byPlatform as any).caption === "string"
+        )
+          draftContent = (byPlatform as any).caption as string;
+        else {
+          const firstValue = Object.values(
+            content as Record<string, unknown>
+          )[0];
+          draftContent = typeof firstValue === "string" ? firstValue : "";
+        }
+      }
+
       const draftData = {
-        content,
+        content: draftContent,
         platforms: platforms.map((p) => ({
           platform: p.platform,
           accountId: p.accountId,
@@ -48,8 +70,35 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Normalize content: Late API expects string per platform. If client sent
+    // an object like { caption, image }, extract caption only.
+    const normalizedContent: Record<string, string> = {};
+    if (typeof content === "object" && content !== null) {
+      Object.entries(content as Record<string, unknown>).forEach(
+        ([platform, value]) => {
+          if (value && typeof value === "object") {
+            const caption = (value as any).caption;
+            normalizedContent[platform] =
+              typeof caption === "string" ? caption : "";
+          } else {
+            normalizedContent[platform] = String(value ?? "");
+          }
+        }
+      );
+    }
+
+    // Reduce to a single string content for Late API
+    let finalContent: string = "";
+    const firstPlatform = platforms?.[0]?.platform;
+    if (firstPlatform && typeof normalizedContent[firstPlatform] === "string") {
+      finalContent = normalizedContent[firstPlatform];
+    } else {
+      const firstValue = Object.values(normalizedContent)[0];
+      finalContent = typeof firstValue === "string" ? firstValue : "";
+    }
+
     const postData = {
-      content,
+      content: finalContent,
       platforms: platforms.map((p) => ({
         platform: p.platform,
         accountId: p.accountId,

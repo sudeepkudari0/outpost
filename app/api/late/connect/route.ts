@@ -1,9 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { late } from "@/lib/late";
 
 export async function POST(request: NextRequest) {
   try {
-    const { platform } = await request.json();
+    const body = await request.json();
+    const { platform } = body;
 
     if (!platform) {
       return NextResponse.json(
@@ -12,8 +14,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { profileId: bodyProfileId } = await request.json();
-    const profileId = bodyProfileId;
+    const bodyProfileId = body?.profileId as string | undefined;
+    const cookieStore = await cookies();
+    const cookieProfileId = cookieStore.get("profile_id")?.value;
+    const profileId = bodyProfileId ?? cookieProfileId;
 
     if (!profileId) {
       return NextResponse.json(

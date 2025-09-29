@@ -1,11 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { late } from "@/lib/late";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const profileIdFromQuery = searchParams.get("profileId") || undefined;
-    const profileId = profileIdFromQuery;
+    const cookieStore = await cookies();
+    const profileIdFromCookie = cookieStore.get("profile_id")?.value;
+    const profileId = profileIdFromQuery ?? profileIdFromCookie;
 
     if (!profileId) {
       return NextResponse.json(

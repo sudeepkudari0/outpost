@@ -1,32 +1,48 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect, useMemo } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { useToast } from "@/hooks/use-toast"
+import { useState, useEffect, useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useToast } from "@/hooks/use-toast";
+import { useProfile } from "@/components/profile-context";
 
 type Account = {
-  id: string
-  platform: "instagram" | "facebook" | "linkedin" | "youtube" | "tiktok" | "threads" | "twitter"
-  name?: string
-  handle?: string
-}
+  _id: string;
+  platform:
+    | "instagram"
+    | "facebook"
+    | "linkedin"
+    | "youtube"
+    | "tiktok"
+    | "threads"
+    | "twitter";
+  username?: string;
+  handle?: string;
+};
 
-type Bundle = {
-  linkedin?: string
-  instagram?: string
-  twitter?: string
-  facebook?: string
-}
+type GeneratedContent = string | { caption?: string; image?: string };
+type Bundle = Record<string, GeneratedContent>;
 
 const timezones = [
   { value: "America/New_York", label: "Eastern Time (ET)" },
@@ -42,16 +58,40 @@ const timezones = [
   { value: "Asia/Shanghai", label: "China Standard Time (CST)" },
   { value: "Asia/Kolkata", label: "India Standard Time (IST)" },
   { value: "Australia/Sydney", label: "Australian Eastern Time (AEST)" },
-]
+];
 
 const contentTypes = [
-  { value: "promotional", label: "Promotional", description: "Product launches, sales, offers" },
-  { value: "educational", label: "Educational", description: "Tips, tutorials, how-tos" },
-  { value: "inspirational", label: "Inspirational", description: "Quotes, motivation, success stories" },
-  { value: "behind-scenes", label: "Behind Scenes", description: "Company culture, team updates" },
-  { value: "user-generated", label: "User Content", description: "Reviews, testimonials, features" },
-  { value: "trending", label: "Trending", description: "Current events, viral topics" },
-]
+  {
+    value: "promotional",
+    label: "Promotional",
+    description: "Product launches, sales, offers",
+  },
+  {
+    value: "educational",
+    label: "Educational",
+    description: "Tips, tutorials, how-tos",
+  },
+  {
+    value: "inspirational",
+    label: "Inspirational",
+    description: "Quotes, motivation, success stories",
+  },
+  {
+    value: "behind-scenes",
+    label: "Behind Scenes",
+    description: "Company culture, team updates",
+  },
+  {
+    value: "user-generated",
+    label: "User Content",
+    description: "Reviews, testimonials, features",
+  },
+  {
+    value: "trending",
+    label: "Trending",
+    description: "Current events, viral topics",
+  },
+];
 
 const toneOptions = [
   { value: "professional", label: "Professional", emoji: "💼" },
@@ -60,82 +100,100 @@ const toneOptions = [
   { value: "humorous", label: "Humorous", emoji: "😄" },
   { value: "inspirational", label: "Inspirational", emoji: "✨" },
   { value: "urgent", label: "Urgent", emoji: "⚡" },
-]
+];
 
 export default function CreatePostPage() {
-  const { toast } = useToast()
+  const { toast } = useToast();
+  const { profileId } = useProfile();
 
   // Form state
-  const [topic, setTopic] = useState("")
-  const [tone, setTone] = useState("professional")
-  const [contentType, setContentType] = useState("promotional")
-  const [targetPlatform, setTargetPlatform] = useState("instagram")
-  const [accounts, setAccounts] = useState<Account[]>([])
-  const [selected, setSelected] = useState<Record<string, boolean>>({})
-  const [bundle, setBundle] = useState<Bundle | null>(null)
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [uploadedMedia, setUploadedMedia] = useState<any[]>([])
-  const [mediaPrompt, setMediaPrompt] = useState("")
-  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null)
+  const [topic, setTopic] = useState("");
+  const [tone, setTone] = useState("professional");
+  const [contentType, setContentType] = useState("promotional");
+  const [targetPlatform, setTargetPlatform] = useState("instagram");
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [bundle, setBundle] = useState<Bundle | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [uploadedMedia, setUploadedMedia] = useState<any[]>([]);
+  const [mediaPrompt, setMediaPrompt] = useState("");
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(
+    null
+  );
 
-  const [publishingOption, setPublishingOption] = useState("now")
-  const [scheduledDate, setScheduledDate] = useState("")
-  const [scheduledTime, setScheduledTime] = useState("")
-  const [timezone, setTimezone] = useState("America/Los_Angeles")
-  const [busy, setBusy] = useState(false)
+  const [publishingOption, setPublishingOption] = useState("now");
+  const [scheduledDate, setScheduledDate] = useState("");
+  const [scheduledTime, setScheduledTime] = useState("");
+  const [timezone, setTimezone] = useState("America/Los_Angeles");
+  const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
-  // Load accounts on mount
+  function handleEditGenerated(platform: string, value: string) {
+    setBundle((prev) => {
+      const next: Bundle = { ...(prev || {}) };
+      next[platform] = value;
+      return next;
+    });
+  }
+
+  // Load accounts when profile changes
   useEffect(() => {
+    if (!profileId) return;
     async function loadAccounts() {
       try {
-        const response = await fetch("/api/late/accounts")
-        const data = await response.json()
-        const accountList: Account[] = data.accounts || []
-        setAccounts(accountList)
+        const response = await fetch(
+          `/api/late/accounts?profileId=${encodeURIComponent(
+            profileId as string
+          )}`
+        );
+        const data = await response.json();
+        const accountList: Account[] = data.accounts || [];
+        console.log("accountList", accountList);
+        setAccounts(accountList);
 
         // Default select all accounts
-        const defaultSelected: Record<string, boolean> = {}
+        const defaultSelected: Record<string, boolean> = {};
         accountList.forEach((account) => {
-          defaultSelected[account.id] = true
-        })
-        setSelected(defaultSelected)
+          defaultSelected[account._id] = true;
+        });
+        setSelected(defaultSelected);
       } catch (error) {
         toast({
           title: "Error",
           description: "Failed to load connected accounts",
           variant: "destructive",
-        })
+        });
       }
     }
-    loadAccounts()
-  }, [toast])
+    loadAccounts();
+  }, [toast, profileId]);
 
   const selectedAccountIds = useMemo(
     () =>
       Object.entries(selected)
         .filter(([, checked]) => checked)
         .map(([id]) => id),
-    [selected],
-  )
+    [selected]
+  );
 
   async function handleConnect(platform: string) {
-    setBusy(true)
+    setBusy(true);
     try {
       const response = await fetch("/api/late/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ platform }),
-      })
-      const { oauthUrl } = await response.json()
-      window.open(oauthUrl, "_blank")
+        body: JSON.stringify({ platform, profileId }),
+      });
+      const { connectUrl } = await response.json();
+      window.open(connectUrl, "_blank");
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to generate connection URL",
         variant: "destructive",
-      })
+      });
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
   }
 
@@ -145,37 +203,42 @@ export default function CreatePostPage() {
         title: "Error",
         description: "Please enter a topic",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    setBusy(true)
+    setBusy(true);
     try {
       const response = await fetch("/api/compose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: topic, tone, platform: targetPlatform, contentType }),
-      })
-      const data = await response.json()
-      setBundle(data)
+        body: JSON.stringify({
+          prompt: topic,
+          tone,
+          platform: targetPlatform,
+          contentType,
+        }),
+      });
+      const data = await response.json();
+      setBundle(data);
       toast({
         title: "Success",
         description: `Content generated for ${targetPlatform.toUpperCase()}!`,
-      })
+      });
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to generate content",
         variant: "destructive",
-      })
+      });
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
   }
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const file = e.target.files?.[0];
+    if (!file) return;
 
     const allowedTypes = [
       "image/jpeg",
@@ -186,40 +249,62 @@ export default function CreatePostPage() {
       "video/mov",
       "video/avi",
       "video/quicktime",
-    ]
+    ];
     if (!allowedTypes.includes(file.type)) {
       toast({
         title: "Error",
-        description: "Please upload an image (JPEG, PNG, GIF, WebP) or video (MP4, MOV, AVI)",
+        description:
+          "Please upload an image (JPEG, PNG, GIF, WebP) or video (MP4, MOV, AVI)",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    setImageFile(file)
-    setBusy(true)
+    setImageFile(file);
+    setBusy(true);
+    setUploading(true);
     try {
-      const formData = new FormData()
-      formData.append("files", file)
-
-      const response = await fetch("/api/upload", {
+      const key = `${Date.now()}-${file.name}`;
+      const presignRes = await fetch("/api/storage/presign", {
         method: "POST",
-        body: formData,
-      })
-      const data = await response.json()
-      setUploadedMedia(data.mediaItems || [])
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key }),
+      });
+      const presign = await presignRes.json();
+      const uploadUrl = presign.presignedUrl as string | undefined;
+      if (!uploadUrl) throw new Error("Failed to get presigned URL");
+
+      const uploadRes = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!uploadRes.ok) throw new Error("Upload failed");
+
+      const publicUrl = presign.publicUrl || key;
+      setUploadedMedia([
+        {
+          url: publicUrl,
+          type: file.type.startsWith("video/") ? "video" : "image",
+          filename: file.name,
+          size: file.size,
+        },
+      ]);
       toast({
         title: "Success",
-        description: file.type.startsWith("video/") ? "Video uploaded successfully!" : "Image uploaded successfully!",
-      })
+        description: file.type.startsWith("video/")
+          ? "Video uploaded successfully!"
+          : "Image uploaded successfully!",
+      });
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to upload media",
         variant: "destructive",
-      })
+      });
     } finally {
-      setBusy(false)
+      setUploading(false);
+      setBusy(false);
     }
   }
 
@@ -229,41 +314,41 @@ export default function CreatePostPage() {
         title: "Error",
         description: "Please enter a description for the image",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    setBusy(true)
+    setBusy(true);
     try {
       const response = await fetch("/api/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: mediaPrompt }),
-      })
-      const data = await response.json()
+      });
+      const data = await response.json();
 
       if (data.imageUrl) {
-        setGeneratedImageUrl(data.imageUrl)
+        setGeneratedImageUrl(data.imageUrl);
         setUploadedMedia([
           {
             url: data.imageUrl,
             type: "image",
             filename: "generated-image.png",
           },
-        ])
+        ]);
         toast({
           title: "Success",
           description: "Image generated successfully!",
-        })
+        });
       }
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to generate image",
         variant: "destructive",
-      })
+      });
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
   }
 
@@ -273,8 +358,8 @@ export default function CreatePostPage() {
         title: "Error",
         description: "Please generate content and select accounts",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
     if (publishingOption === "schedule" && (!scheduledDate || !scheduledTime)) {
@@ -282,23 +367,23 @@ export default function CreatePostPage() {
         title: "Error",
         description: "Please select a date and time for scheduling",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    setBusy(true)
+    setBusy(true);
     try {
       const platforms = selectedAccountIds.map((accountId) => {
-        const account = accounts.find((a) => a.id === accountId)
+        const account = accounts.find((a) => a._id === accountId);
         return {
           accountId,
           platform: account?.platform,
-        }
-      })
+        };
+      });
 
-      let scheduledFor = undefined
+      let scheduledFor = undefined;
       if (publishingOption === "schedule") {
-        scheduledFor = `${scheduledDate}T${scheduledTime}`
+        scheduledFor = `${scheduledDate}T${scheduledTime}`;
       }
 
       const response = await fetch("/api/post", {
@@ -312,43 +397,43 @@ export default function CreatePostPage() {
           scheduledFor,
           timezone,
         }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (response.ok) {
-        let message = "Posts published successfully!"
+        let message = "Posts published successfully!";
         if (publishingOption === "schedule") {
-          message = "Posts scheduled successfully!"
+          message = "Posts scheduled successfully!";
         } else if (publishingOption === "draft") {
-          message = "Posts saved as draft!"
+          message = "Posts saved as draft!";
         }
 
         toast({
           title: "Success",
           description: message,
-        })
+        });
 
         // Reset form
-        setBundle(null)
-        setTopic("")
-        setImageFile(null)
-        setUploadedMedia([])
-        setGeneratedImageUrl(null)
-        setMediaPrompt("")
-        setScheduledDate("")
-        setScheduledTime("")
+        setBundle(null);
+        setTopic("");
+        setImageFile(null);
+        setUploadedMedia([]);
+        setGeneratedImageUrl(null);
+        setMediaPrompt("");
+        setScheduledDate("");
+        setScheduledTime("");
       } else {
-        throw new Error(data.error)
+        throw new Error(data.error);
       }
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to process posts",
         variant: "destructive",
-      })
+      });
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
   }
 
@@ -357,45 +442,46 @@ export default function CreatePostPage() {
       <div className="space-y-8">
         <div>
           <h1 className="text-3xl font-bold">Create Post</h1>
-          <p className="text-muted-foreground">Generate and publish content across your social media platforms</p>
+          <p className="text-muted-foreground">
+            Generate and publish content across your social media platforms
+          </p>
         </div>
 
         {/* Connected Accounts */}
         <Card>
           <CardHeader>
             <CardTitle>Connected Accounts</CardTitle>
-            <CardDescription>Connect and manage your social media accounts</CardDescription>
+            <CardDescription>
+              Select the accounts you want to post to
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              {["instagram", "facebook", "linkedin", "youtube", "tiktok", "threads", "twitter"].map((platform) => (
-                <Button
-                  key={platform}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleConnect(platform)}
-                  disabled={busy}
-                >
-                  Connect {platform.charAt(0).toUpperCase() + platform.slice(1)}
-                </Button>
-              ))}
-            </div>
-
-            {accounts.length > 0 && (
-              <div className="space-y-2">
-                <Label>Select accounts to post to:</Label>
-                {accounts.map((account) => (
-                  <div key={account.id} className="flex items-center space-x-2">
+          <CardContent className="">
+            {accounts.length > 0 ? (
+              <div className="gap-2 grid grid-cols-1 md:grid-cols-2">
+                {accounts.map((account, index) => (
+                  <div key={index} className="flex items-center space-x-2">
                     <Checkbox
-                      id={account.id}
-                      checked={selected[account.id] || false}
-                      onCheckedChange={(checked) => setSelected((prev) => ({ ...prev, [account.id]: !!checked }))}
+                      id={account._id}
+                      checked={selected[account._id] || false}
+                      onCheckedChange={(checked) =>
+                        setSelected((prev) => ({
+                          ...prev,
+                          [account._id]: !!checked,
+                        }))
+                      }
                     />
-                    <Label htmlFor={account.id} className="text-sm">
-                      {account.platform.toUpperCase()} - {account.handle || account.name || account.id}
+                    <Label htmlFor={account._id} className="text-sm">
+                      {account.platform.toUpperCase()} -{" "}
+                      {account.handle || account.username || account._id}
                     </Label>
                   </div>
                 ))}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-2xl text-muted-foreground h-[100px] flex items-center justify-center">
+                  No accounts connected. Please connect your accounts first.
+                </p>
               </div>
             )}
           </CardContent>
@@ -405,13 +491,18 @@ export default function CreatePostPage() {
         <Card>
           <CardHeader>
             <CardTitle>Generate Content</CardTitle>
-            <CardDescription>Use AI to create platform-specific content with advanced options</CardDescription>
+            <CardDescription>
+              Use AI to create platform-specific content with advanced options
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="platform">Target Platform</Label>
-                <Select value={targetPlatform} onValueChange={setTargetPlatform}>
+                <Select
+                  value={targetPlatform}
+                  onValueChange={setTargetPlatform}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -438,7 +529,9 @@ export default function CreatePostPage() {
                       <SelectItem key={type.value} value={type.value}>
                         <div className="flex flex-col">
                           <span>{type.label}</span>
-                          <span className="text-xs text-muted-foreground">{type.description}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {type.description}
+                          </span>
                         </div>
                       </SelectItem>
                     ))}
@@ -479,7 +572,12 @@ export default function CreatePostPage() {
               </div>
             </div>
 
-            <Button onClick={handleGenerate} disabled={busy || !topic.trim()} className="w-full" size="lg">
+            <Button
+              onClick={handleGenerate}
+              disabled={busy || !topic.trim()}
+              className="w-full"
+              size="lg"
+            >
               {busy ? "Generating..." : "✨ Generate Content"}
             </Button>
           </CardContent>
@@ -490,15 +588,34 @@ export default function CreatePostPage() {
           <Card>
             <CardHeader>
               <CardTitle>Generated Content</CardTitle>
-              <CardDescription>Review your platform-specific content</CardDescription>
+              <CardDescription>
+                Review your platform-specific content
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {Object.entries(bundle).map(([platform, content]) => (
-                <div key={platform} className="border rounded p-3">
-                  <h4 className="font-medium mb-2">{platform.toUpperCase()}</h4>
-                  <p className="text-sm text-muted-foreground">{content}</p>
-                </div>
-              ))}
+            <CardContent className="space-y-4 border-0 pt-0">
+              {Object.entries(bundle).map(([platform, content]) => {
+                const isObject =
+                  typeof content === "object" && content !== null;
+                const caption = isObject
+                  ? (content as any).caption
+                  : String(content ?? "");
+                const imageUrl = isObject ? (content as any).image : undefined;
+                return (
+                  <div key={platform} className="space-y-2">
+                    <Textarea
+                      value={caption}
+                      onChange={(e) =>
+                        handleEditGenerated(platform, e.target.value)
+                      }
+                      className="min-h-[120px]"
+                    />
+
+                    {!caption && !imageUrl && (
+                      <p className="text-sm">No preview available</p>
+                    )}
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
         )}
@@ -507,7 +624,9 @@ export default function CreatePostPage() {
         <Card>
           <CardHeader>
             <CardTitle>Media</CardTitle>
-            <CardDescription>Upload or generate images and videos for your post</CardDescription>
+            <CardDescription>
+              Upload or generate images and videos for your post
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="upload" className="w-full">
@@ -526,17 +645,23 @@ export default function CreatePostPage() {
                     onChange={handleImageUpload}
                     disabled={busy}
                   />
+                  {uploading && (
+                    <p className="text-xs text-muted-foreground">
+                      Uploading...
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground">
-                    Supported: Images (JPEG, PNG, GIF, WebP) and Videos (MP4, MOV, AVI) for Instagram Reels, YouTube
-                    Shorts
+                    Supported: Images (JPEG, PNG, GIF, WebP) and Videos (MP4,
+                    MOV, AVI) for Instagram Reels, YouTube Shorts
                   </p>
                 </div>
                 {imageFile && (
                   <div className="p-3 bg-muted rounded">
                     <p className="text-sm">Selected: {imageFile.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      Type: {imageFile.type.startsWith("video/") ? "Video" : "Image"} | Size:{" "}
-                      {(imageFile.size / 1024 / 1024).toFixed(2)} MB
+                      Type:{" "}
+                      {imageFile.type.startsWith("video/") ? "Video" : "Image"}{" "}
+                      | Size: {(imageFile.size / 1024 / 1024).toFixed(2)} MB
                     </p>
                   </div>
                 )}
@@ -552,7 +677,11 @@ export default function CreatePostPage() {
                     onChange={(e) => setMediaPrompt(e.target.value)}
                   />
                 </div>
-                <Button onClick={handleGenerateImage} disabled={busy || !mediaPrompt.trim()} className="w-full">
+                <Button
+                  onClick={handleGenerateImage}
+                  disabled={busy || !mediaPrompt.trim()}
+                  className="w-full"
+                >
                   {busy ? "Generating..." : "Generate Image with DALL-E"}
                 </Button>
                 {generatedImageUrl && (
@@ -581,13 +710,22 @@ export default function CreatePostPage() {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-4">
-              <Label className="text-base font-medium">Publishing Options</Label>
-              <RadioGroup value={publishingOption} onValueChange={setPublishingOption} className="space-y-3">
+              <Label className="text-base font-medium">
+                Publishing Options
+              </Label>
+              <RadioGroup
+                value={publishingOption}
+                onValueChange={setPublishingOption}
+                className="space-y-3"
+              >
                 <div className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
                   <RadioGroupItem value="now" id="publish-now" />
                   <div className="flex items-center space-x-2">
                     <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <Label htmlFor="publish-now" className="font-medium cursor-pointer">
+                    <Label
+                      htmlFor="publish-now"
+                      className="font-medium cursor-pointer"
+                    >
                       Publish now
                     </Label>
                   </div>
@@ -597,7 +735,10 @@ export default function CreatePostPage() {
                   <RadioGroupItem value="schedule" id="schedule-later" />
                   <div className="flex items-center space-x-2">
                     <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                    <Label htmlFor="schedule-later" className="font-medium cursor-pointer">
+                    <Label
+                      htmlFor="schedule-later"
+                      className="font-medium cursor-pointer"
+                    >
                       Schedule for later
                     </Label>
                   </div>
@@ -607,7 +748,10 @@ export default function CreatePostPage() {
                   <RadioGroupItem value="draft" id="save-draft" />
                   <div className="flex items-center space-x-2">
                     <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                    <Label htmlFor="save-draft" className="font-medium cursor-pointer">
+                    <Label
+                      htmlFor="save-draft"
+                      className="font-medium cursor-pointer"
+                    >
                       Save as draft
                     </Label>
                   </div>
@@ -662,7 +806,9 @@ export default function CreatePostPage() {
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded text-sm">
                     <p className="text-blue-800">
                       <strong>Scheduled for:</strong>{" "}
-                      {new Date(`${scheduledDate}T${scheduledTime}`).toLocaleDateString("en-US", {
+                      {new Date(
+                        `${scheduledDate}T${scheduledTime}`
+                      ).toLocaleDateString("en-US", {
                         weekday: "long",
                         year: "numeric",
                         month: "long",
@@ -684,7 +830,8 @@ export default function CreatePostPage() {
                 busy ||
                 !bundle ||
                 selectedAccountIds.length === 0 ||
-                (publishingOption === "schedule" && (!scheduledDate || !scheduledTime))
+                (publishingOption === "schedule" &&
+                  (!scheduledDate || !scheduledTime))
               }
               className="w-full"
               size="lg"
@@ -692,14 +839,14 @@ export default function CreatePostPage() {
               {busy
                 ? "Processing..."
                 : publishingOption === "now"
-                  ? "Publish Now"
-                  : publishingOption === "schedule"
-                    ? "Schedule Post"
-                    : "Save as Draft"}
+                ? "Publish Now"
+                : publishingOption === "schedule"
+                ? "Schedule Post"
+                : "Save as Draft"}
             </Button>
           </CardContent>
         </Card>
       </div>
     </div>
-  )
+  );
 }
