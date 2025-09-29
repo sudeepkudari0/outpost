@@ -1,12 +1,18 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
+import { useEffect, useMemo, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import {
   MoreHorizontal,
   Edit,
@@ -18,83 +24,74 @@ import {
   Upload,
   ChevronLeft,
   ChevronRight,
-} from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import Link from "next/link"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { useToast } from "@/hooks/use-toast"
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import Link from "next/link";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
-// Mock data for posts
-const mockPosts = [
-  {
-    id: "68a799f1",
-    content:
-      "Migraine pain can ruin your day — but you don't have to push through it anymore. ComforTide 425 offers fast, non-drowsy relief trusted by doctors and...",
-    scheduled: "Aug 21, 2025 at 07:17 PM PDT",
-    created: "8/21/2025",
-    platforms: ["instagram"],
-    status: "scheduled",
-    image: "/woman-headache.png",
-  },
-  {
-    id: "68a7932",
-    content:
-      "Hey mama-to-be! ⭐ Iron is a big deal during pregnancy. Our 280 Plus supplement has you covered with iron, DHA, folic acid, and more! Join the Mother...",
-    scheduled: "Aug 21, 2025 at 03:09 PM PDT",
-    created: "8/21/2025",
-    platforms: ["instagram"],
-    status: "published",
-    image: "/pregnant-woman-celebration.png",
-  },
-  {
-    id: "68a797d5",
-    content:
-      "Welcome to Mother 280! We're thrilled to support you on your pregnancy journey with essential supplements, resources, and community support. Share wit...",
-    scheduled: "Aug 21, 2025 at 03:04 PM PDT",
-    created: "8/21/2025",
-    platforms: ["instagram"],
-    status: "published",
-    image: "/pregnant-woman-wellness.png",
-  },
-]
+type UiPost = {
+  id: string;
+  content: string;
+  scheduled?: string | null;
+  created?: string | null;
+  platforms: string[];
+  status: string;
+  image?: string | null;
+};
 
 // Calendar helper functions and calendar view component
 const getDaysInMonth = (date: Date) => {
-  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
-}
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+};
 
 const getFirstDayOfMonth = (date: Date) => {
-  return new Date(date.getFullYear(), date.getMonth(), 1).getDay()
-}
+  return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+};
 
 const formatDate = (date: Date) => {
-  return date.toLocaleDateString("en-US", { month: "long", year: "numeric" })
-}
+  return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+};
 
 const getPostsForDate = (posts: any[], date: Date) => {
-  const dateStr = date.toDateString()
+  const dateStr = date.toDateString();
   return posts.filter((post) => {
-    const postDate = new Date(post.scheduled)
-    return postDate.toDateString() === dateStr
-  })
-}
+    const postDate = new Date(post.scheduled || post.created || 0);
+    return postDate.toDateString() === dateStr;
+  });
+};
 
 const CalendarView = ({ posts }: { posts: any[] }) => {
-  const [currentDate, setCurrentDate] = useState(new Date())
+  const [currentDate, setCurrentDate] = useState(new Date());
 
-  const daysInMonth = getDaysInMonth(currentDate)
-  const firstDay = getFirstDayOfMonth(currentDate)
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+  const daysInMonth = getDaysInMonth(currentDate);
+  const firstDay = getFirstDayOfMonth(currentDate);
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   const previousMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
-  }
+    setCurrentDate(
+      new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
+    );
+  };
 
   const nextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
-  }
+    setCurrentDate(
+      new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1)
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -117,7 +114,10 @@ const CalendarView = ({ posts }: { posts: any[] }) => {
           <div className="grid grid-cols-7 gap-2">
             {/* Day Headers */}
             {days.map((day) => (
-              <div key={day} className="p-2 text-center text-sm font-medium text-muted-foreground">
+              <div
+                key={day}
+                className="p-2 text-center text-sm font-medium text-muted-foreground"
+              >
                 {day}
               </div>
             ))}
@@ -129,15 +129,21 @@ const CalendarView = ({ posts }: { posts: any[] }) => {
 
             {/* Calendar Days */}
             {Array.from({ length: daysInMonth }, (_, i) => {
-              const day = i + 1
-              const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day)
-              const dayPosts = getPostsForDate(posts, date)
-              const isToday = date.toDateString() === new Date().toDateString()
+              const day = i + 1;
+              const date = new Date(
+                currentDate.getFullYear(),
+                currentDate.getMonth(),
+                day
+              );
+              const dayPosts = getPostsForDate(posts, date);
+              const isToday = date.toDateString() === new Date().toDateString();
 
               return (
                 <div
                   key={day}
-                  className={`p-2 h-24 border rounded-lg ${isToday ? "bg-blue-50 border-blue-200" : "border-border"}`}
+                  className={`p-2 h-24 border rounded-lg ${
+                    isToday ? "bg-blue-50 border-blue-200" : "border-border"
+                  }`}
                 >
                   <div className="text-sm font-medium mb-1">{day}</div>
                   <div className="space-y-1">
@@ -145,138 +151,240 @@ const CalendarView = ({ posts }: { posts: any[] }) => {
                       <div
                         key={idx}
                         className={`text-xs p-1 rounded truncate ${
-                          post.status === "published" ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"
+                          post.status === "published"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-blue-100 text-blue-800"
                         }`}
                       >
                         {post.content.substring(0, 20)}...
                       </div>
                     ))}
                     {dayPosts.length > 2 && (
-                      <div className="text-xs text-muted-foreground">+{dayPosts.length - 2} more</div>
+                      <div className="text-xs text-muted-foreground">
+                        +{dayPosts.length - 2} more
+                      </div>
                     )}
                   </div>
                 </div>
-              )
+              );
             })}
           </div>
         </CardContent>
       </Card>
     </div>
-  )
-}
+  );
+};
 
 export default function PostsPage() {
-  const [viewMode, setViewMode] = useState<"list" | "calendar">("list")
-  const [filterPosts, setFilterPosts] = useState("all")
-  const [filterPlatforms, setFilterPlatforms] = useState("all")
-  const [filterProfiles, setFilterProfiles] = useState("all")
-  const [filterDates, setFilterDates] = useState("all")
-  const [showImportDialog, setShowImportDialog] = useState(false)
-  const [csvFile, setCsvFile] = useState<File | null>(null)
-  const [importPreview, setImportPreview] = useState<any[]>([])
-  const [isImporting, setIsImporting] = useState(false)
-  const { toast } = useToast()
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+  const [posts, setPosts] = useState<UiPost[]>([]);
+  const [filterPosts, setFilterPosts] = useState("all");
+  const [filterPlatforms, setFilterPlatforms] = useState("all");
+  const [filterProfiles, setFilterProfiles] = useState("all");
+  const [filterDates, setFilterDates] = useState("all");
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [importPreview, setImportPreview] = useState<any[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
+  const { toast } = useToast();
+
+  const getPostDate = (post: UiPost) => {
+    const d = new Date(post.scheduled || post.created || 0);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  const isInDateFilter = (post: UiPost): boolean => {
+    if (filterDates === "all") return true;
+    const d = getPostDate(post);
+    if (!d) return false;
+    const now = new Date();
+
+    if (filterDates === "today") {
+      return d.toDateString() === now.toDateString();
+    }
+
+    if (filterDates === "week") {
+      const day = now.getDay();
+      const diffToStart = (day + 6) % 7; // start Monday
+      const start = new Date(now);
+      start.setHours(0, 0, 0, 0);
+      start.setDate(now.getDate() - diffToStart);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+      return d >= start && d <= end;
+    }
+
+    if (filterDates === "month") {
+      return (
+        d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+      );
+    }
+
+    return true;
+  };
+
+  const filteredPosts = useMemo(() => {
+    return posts.filter((post) => {
+      const matchesStatus =
+        filterPosts === "all" ? true : post.status === filterPosts;
+      const matchesPlatform =
+        filterPlatforms === "all"
+          ? true
+          : post.platforms.includes(filterPlatforms);
+      const matchesProfile =
+        filterProfiles === "all"
+          ? true
+          : (post as any).profileId
+          ? (post as any).profileId === filterProfiles
+          : true;
+      const matchesDate = isInDateFilter(post);
+
+      return matchesStatus && matchesPlatform && matchesProfile && matchesDate;
+    });
+  }, [posts, filterPosts, filterPlatforms, filterProfiles, filterDates]);
+
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const res = await fetch("/api/posts?limit=50", { cache: "no-store" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "Failed to fetch posts");
+
+        const normalized: UiPost[] = (data.posts || []).map((p: any) => ({
+          id: p.id || p._id || "",
+          content: p.content || "",
+          scheduled: p.scheduledFor || p.scheduled_at || null,
+          created: p.createdAt || p.created_at || null,
+          platforms: Array.isArray(p.platforms)
+            ? p.platforms
+                .map((x: any) => (typeof x === "string" ? x : x.platform))
+                .filter(Boolean)
+            : [],
+          status: p.status || (p.scheduledFor ? "scheduled" : "published"),
+          image: p.mediaItems?.[0]?.url || null,
+        }));
+        setPosts(normalized);
+      } catch (e: any) {
+        setError(e?.message || "Failed to fetch posts");
+        toast({
+          title: "Failed to load posts",
+          description: e?.message,
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPosts();
+  }, [toast]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+    const file = event.target.files?.[0];
     if (file && file.type === "text/csv") {
-      setCsvFile(file)
-      parseCSVPreview(file)
+      setCsvFile(file);
+      parseCSVPreview(file);
     } else {
       toast({
         title: "Invalid file type",
         description: "Please select a CSV file",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   const parseCSVPreview = async (file: File) => {
-    const text = await file.text()
-    const lines = text.split("\n")
-    const headers = lines[0].split(",").map((h) => h.trim())
+    const text = await file.text();
+    const lines = text.split("\n");
+    const headers = lines[0].split(",").map((h) => h.trim());
 
     const preview = lines
       .slice(1, 6)
       .map((line) => {
-        const values = line.split(",").map((v) => v.trim())
-        const row: any = {}
+        const values = line.split(",").map((v) => v.trim());
+        const row: any = {};
         headers.forEach((header, index) => {
-          row[header] = values[index] || ""
-        })
-        return row
+          row[header] = values[index] || "";
+        });
+        return row;
       })
-      .filter((row) => Object.values(row).some((val) => val))
+      .filter((row) => Object.values(row).some((val) => val));
 
-    setImportPreview(preview)
-  }
+    setImportPreview(preview);
+  };
 
   const handleImportCSV = async () => {
-    if (!csvFile) return
+    if (!csvFile) return;
 
-    setIsImporting(true)
-    const formData = new FormData()
-    formData.append("file", csvFile)
+    setIsImporting(true);
+    const formData = new FormData();
+    formData.append("file", csvFile);
 
     try {
       const response = await fetch("/api/import-csv", {
         method: "POST",
         body: formData,
-      })
+      });
 
-      const result = await response.json()
+      const result = await response.json();
 
       if (response.ok) {
         toast({
           title: "Import successful",
           description: `${result.imported} posts imported successfully`,
-        })
-        setShowImportDialog(false)
-        setCsvFile(null)
-        setImportPreview([])
+        });
+        setShowImportDialog(false);
+        setCsvFile(null);
+        setImportPreview([]);
         // Refresh posts list here
       } else {
         toast({
           title: "Import failed",
           description: result.error || "Failed to import posts",
           variant: "destructive",
-        })
+        });
       }
     } catch (error) {
       toast({
         title: "Import failed",
         description: "An error occurred while importing posts",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsImporting(false)
+      setIsImporting(false);
     }
-  }
+  };
 
   const downloadCSVTemplate = () => {
     const csvContent = `content,scheduled_time,platforms,timezone,media_url
 "Your post content here","2025-08-21 15:30:00","instagram;facebook","America/New_York","https://example.com/image.jpg"
 "Another post example","2025-08-22 10:00:00","linkedin","UTC",""
-"Third post without media","2025-08-23 14:15:00","twitter;instagram","America/Los_Angeles",""`
+"Third post without media","2025-08-23 14:15:00","twitter;instagram","America/Los_Angeles",""`;
 
-    const blob = new Blob([csvContent], { type: "text/csv" })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = "posts_template.csv"
-    a.click()
-    window.URL.revokeObjectURL(url)
-  }
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "posts_template.csv";
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap flex-row gap-4 items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Posts</h1>
-          <p className="text-muted-foreground">manage your scheduled and published content</p>
+          <p className="text-muted-foreground">
+            manage your scheduled and published content
+          </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap flex-row items-center gap-2">
           <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm">
@@ -300,10 +408,12 @@ export default function PostsPage() {
                         <code>content</code> - Your post text content
                       </li>
                       <li>
-                        <code>scheduled_time</code> - Format: YYYY-MM-DD HH:MM:SS (e.g., 2025-08-21 15:30:00)
+                        <code>scheduled_time</code> - Format: YYYY-MM-DD
+                        HH:MM:SS (e.g., 2025-08-21 15:30:00)
                       </li>
                       <li>
-                        <code>platforms</code> - Semicolon-separated list (e.g., instagram;facebook;twitter)
+                        <code>platforms</code> - Semicolon-separated list (e.g.,
+                        instagram;facebook;twitter)
                       </li>
                     </ul>
                     <p>
@@ -311,13 +421,19 @@ export default function PostsPage() {
                     </p>
                     <ul className="list-disc list-inside ml-4 space-y-1">
                       <li>
-                        <code>timezone</code> - Timezone (e.g., America/New_York, UTC) - defaults to UTC
+                        <code>timezone</code> - Timezone (e.g.,
+                        America/New_York, UTC) - defaults to UTC
                       </li>
                       <li>
                         <code>media_url</code> - URL to image/video for the post
                       </li>
                     </ul>
-                    <Button variant="outline" size="sm" onClick={downloadCSVTemplate} className="mt-2 bg-transparent">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={downloadCSVTemplate}
+                      className="mt-2 bg-transparent"
+                    >
                       Download Template CSV
                     </Button>
                   </div>
@@ -325,7 +441,13 @@ export default function PostsPage() {
 
                 <div>
                   <Label htmlFor="csv-file">Select CSV File</Label>
-                  <Input id="csv-file" type="file" accept=".csv" onChange={handleFileSelect} className="mt-1" />
+                  <Input
+                    id="csv-file"
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileSelect}
+                    className="mt-1"
+                  />
                 </div>
 
                 {importPreview.length > 0 && (
@@ -345,10 +467,16 @@ export default function PostsPage() {
                 )}
 
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setShowImportDialog(false)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowImportDialog(false)}
+                  >
                     Cancel
                   </Button>
-                  <Button onClick={handleImportCSV} disabled={!csvFile || isImporting}>
+                  <Button
+                    onClick={handleImportCSV}
+                    disabled={!csvFile || isImporting}
+                  >
                     {isImporting ? "Importing..." : "Import Posts"}
                   </Button>
                 </div>
@@ -365,8 +493,8 @@ export default function PostsPage() {
       </div>
 
       {/* View Toggle and Filters */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-wrap flex-row items-center justify-between gap-4">
+        <div className="flex flex-wrap flex-row items-center gap-4">
           <Select value={filterPosts} onValueChange={setFilterPosts}>
             <SelectTrigger className="w-32">
               <SelectValue placeholder="All posts" />
@@ -416,7 +544,11 @@ export default function PostsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => setViewMode("list")}>
+          <Button
+            variant={viewMode === "list" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("list")}
+          >
             <List className="h-4 w-4 mr-2" />
             List
           </Button>
@@ -434,25 +566,47 @@ export default function PostsPage() {
       {viewMode === "list" ? (
         /* Posts List */
         <div className="space-y-4">
-          {mockPosts.map((post) => (
-            <Card key={post.id}>
-              <CardContent className="p-6">
-                <div className="flex gap-4">
-                  {/* Post Image */}
-                  <div className="w-24 h-24 bg-muted rounded-lg overflow-hidden flex-shrink-0">
-                    <img
-                      src={post.image || "/placeholder.svg"}
-                      alt="Post preview"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+          {loading && (
+            <Card>
+              <CardContent className="p-6">Loading posts…</CardContent>
+            </Card>
+          )}
+          {error && !loading && (
+            <Card>
+              <CardContent className="p-6 text-red-600">{error}</CardContent>
+            </Card>
+          )}
+          {!loading && !error && filteredPosts.length === 0 && (
+            <Card>
+              <CardContent className="p-6">No posts found.</CardContent>
+            </Card>
+          )}
+          {!loading &&
+            !error &&
+            filteredPosts.map((post) => (
+              <Card key={post.id}>
+                <CardContent className="relative">
+                  <div className="flex flex-col md:flex-row gap-3 md:gap-4">
+                    {/* Post Image */}
+                    <div className="w-16 h-16 md:w-24 md:h-24 bg-muted rounded-md overflow-hidden flex-shrink-0">
+                      <img
+                        src={post.image || "/placeholder.svg"}
+                        alt="Post preview"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
 
-                  {/* Post Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between mb-2">
-                      <p className="text-sm text-muted-foreground line-clamp-3">{post.content}</p>
-                      <div className="flex items-center gap-2 ml-4">
-                        <Badge variant={post.status === "published" ? "default" : "secondary"}>
+                    {/* Post Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between mb-1 md:mb-2 gap-2 ">
+                        <Badge
+                          className="absolute top-2 right-2 px-2 py-0.5 text-[10px] md:text-xs"
+                          variant={
+                            post.status === "published"
+                              ? "default"
+                              : "secondary"
+                          }
+                        >
                           {post.status === "published" ? (
                             <>
                               <div className="w-2 h-2 bg-green-500 rounded-full mr-1" />
@@ -465,60 +619,93 @@ export default function PostsPage() {
                             </>
                           )}
                         </Badge>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Copy className="h-4 w-4 mr-2" />
-                              Duplicate
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-red-600">
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <p className="text-sm md:text-sm text-muted-foreground line-clamp-2 md:line-clamp-3">
+                          {post.content}
+                        </p>
+                        <div className="flex items-center gap-1 md:gap-2 ml-0 md:ml-4">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem>
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Copy className="h-4 w-4 mr-2" />
+                                Duplicate
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600">
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+
+                      {/* Post Meta */}
+                      <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs md:text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <span className="whitespace-nowrap">scheduled</span>
+                          <span className="truncate">
+                            {post.scheduled || "—"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="whitespace-nowrap">created</span>
+                          <span className="truncate">
+                            {post.created || "—"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 sm:col-span-2">
+                          <span className="whitespace-nowrap">id</span>
+                          <span className="truncate">{post.id}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto p-0 ml-1"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Platforms */}
+                      <div className="flex flex-wrap items-center gap-1 md:gap-2 mt-2">
+                        <span className="text-xs md:text-sm text-muted-foreground">
+                          platforms:
+                        </span>
+                        {post.platforms.map((platform) => (
+                          <Badge
+                            key={platform}
+                            variant="outline"
+                            className="text-[10px] md:text-xs px-2 py-0.5"
+                          >
+                            {platform}
+                            {post.status === "published" && (
+                              <div className="w-2 h-2 bg-green-500 rounded-full ml-1" />
+                            )}
+                          </Badge>
+                        ))}
                       </div>
                     </div>
-
-                    {/* Post Meta */}
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span>scheduled: {post.scheduled}</span>
-                      <span>created: {post.created}</span>
-                      <span>id: {post.id}...</span>
-                      <Button variant="ghost" size="sm" className="h-auto p-0">
-                        <Copy className="h-3 w-3" />
-                      </Button>
-                    </div>
-
-                    {/* Platforms */}
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-sm text-muted-foreground">platforms:</span>
-                      {post.platforms.map((platform) => (
-                        <Badge key={platform} variant="outline" className="text-xs">
-                          {platform}
-                          {post.status === "published" && <div className="w-2 h-2 bg-green-500 rounded-full ml-1" />}
-                        </Badge>
-                      ))}
-                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            ))}
         </div>
       ) : (
         /* Calendar View */
-        <CalendarView posts={mockPosts} />
+        <CalendarView posts={filteredPosts} />
       )}
     </div>
-  )
+  );
 }

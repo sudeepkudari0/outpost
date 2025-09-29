@@ -128,6 +128,28 @@ export class LateClient {
     }
     return res.json();
   }
+
+  async listPosts(params?: {
+    status?: string;
+    limit?: number;
+    after?: string;
+    profileId?: string;
+  }): Promise<{ posts: any[]; after?: string; before?: string }> {
+    const url = new URL(`${this.baseUrl}/v1/posts`);
+    if (params?.status) url.searchParams.set("status", params.status);
+    if (params?.limit) url.searchParams.set("limit", String(params.limit));
+    if (params?.after) url.searchParams.set("after", params.after);
+    if (params?.profileId) url.searchParams.set("profileId", params.profileId);
+
+    const res = await fetch(url.toString(), {
+      headers: this.defaultHeaders,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Late API error ${res.status}: ${text}`);
+    }
+    return res.json();
+  }
 }
 
 const LATE_BASE_URL = "https://getlate.dev/api";
