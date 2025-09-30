@@ -91,16 +91,64 @@ export class LateClient {
     return url;
   }
 
-  async disconnectAccount(accountId: string): Promise<void> {
-    // Assuming v1 DELETE endpoint for disconnect
-    const res = await fetch(`${this.baseUrl}/v1/accounts/${accountId}`, {
-      method: "DELETE",
+  async getConnectAuth(
+    platform: string,
+    profileId: string,
+    redirectUrl: string
+  ): Promise<{ authUrl: string; state?: string }> {
+    const url = this.buildConnectUrl(platform, profileId, redirectUrl);
+    const res = await fetch(url, {
       headers: this.defaultHeaders,
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(`Late API error ${res.status}: ${text}`);
     }
+    return res.json();
+  }
+
+  async disconnectAccount(
+    accountId: string,
+    opts?: { profileId?: string; platform?: string }
+  ): Promise<void> {
+    // First attempt: DELETE by resource id
+    let res = await fetch(`${this.baseUrl}/v1/accounts/${accountId}`, {
+      method: "DELETE",
+      headers: this.defaultHeaders,
+    });
+
+    if (res.ok) return;
+
+    // If method not allowed, some APIs use an explicit disconnect action
+    if (res.status === 405) {
+      const alt = await fetch(
+        `${this.baseUrl}/v1/accounts/${accountId}/disconnect`,
+        {
+          method: "POST",
+          headers: this.defaultHeaders,
+        }
+      );
+      if (alt.ok) return;
+      res = alt;
+    }
+
+    // If that fails and we have additional identifiers, try a query-based delete
+    if (opts?.profileId || opts?.platform) {
+      const url = new URL(`${this.baseUrl}/v1/accounts`);
+      url.searchParams.set("accountId", accountId);
+      if (opts.profileId) url.searchParams.set("profileId", opts.profileId);
+      if (opts.platform) url.searchParams.set("platform", opts.platform);
+
+      res = await fetch(url.toString(), {
+        method: "DELETE",
+        headers: this.defaultHeaders,
+      });
+
+      if (res.ok) return;
+    }
+
+    const text = await res.text().catch(() => "");
+    throw new Error(`Late API error ${res.status}: ${text}`);
   }
 
   async createDraft(payload: any): Promise<any> {

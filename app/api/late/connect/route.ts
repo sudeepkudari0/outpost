@@ -26,15 +26,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const connectUrl = late.buildConnectUrl(
-      platform,
-      profileId,
-      `${request.nextUrl.origin}/dashboard/connections?connected=${platform}`
-    );
+    // Normalize platform aliases per Late docs (Twitter/X)
+    const normalizedPlatform =
+      platform?.toLowerCase() === "x" || platform?.toLowerCase() === "twitter"
+        ? "twitter"
+        : platform;
 
-    return NextResponse.json({
-      connectUrl,
-    });
+    const redirectUrl = `${request.nextUrl.origin}/dashboard/connections?connected=${platform}`;
+
+    // Prefer server-side fetch of Late connect JSON so we can return authUrl directly
+    try {
+      const connectData = await late.getConnectAuth(
+        normalizedPlatform,
+        profileId,
+        redirectUrl
+      );
+      // connectData contains { authUrl, state }
+      return NextResponse.json({ ...connectData });
+    } catch (e) {
+      // Fallback to returning the constructed URL so client can still navigate
+      const connectUrl = late.buildConnectUrl(
+        normalizedPlatform,
+        profileId,
+        redirectUrl
+      );
+      return NextResponse.json({ connectUrl });
+    }
   } catch (error) {
     console.error("Connect error:", error);
     return NextResponse.json(

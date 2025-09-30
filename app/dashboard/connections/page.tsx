@@ -69,7 +69,7 @@ interface Profile {
 }
 
 interface ConnectedAccount {
-  id: string;
+  _id: string;
   username: string;
   connectedDate: string;
   profileId?: string;
@@ -119,7 +119,6 @@ export default function ConnectionsPage() {
       }
 
       const data = await response.json();
-      console.log("[v0] Fetched profiles:", data);
 
       if (data.profiles && Array.isArray(data.profiles)) {
         setProfiles(data.profiles);
@@ -129,10 +128,6 @@ export default function ConnectionsPage() {
           setSelectedProfile(firstProfileId);
 
           try {
-            console.log(
-              "[v0] Attempting to save profile ID to settings:",
-              firstProfileId
-            );
             const saveResponse = await fetch("/api/settings", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -151,16 +146,13 @@ export default function ConnectionsPage() {
             }
 
             const saveResult = await saveResponse.json();
-            console.log("[v0] Profile ID save result:", saveResult);
 
             // Verify the profile ID was actually saved
             const verifyResponse = await fetch("/api/settings");
             if (verifyResponse.ok) {
               const currentSettings = await verifyResponse.json();
-              console.log("[v0] Current settings after save:", currentSettings);
 
               if (currentSettings.lateProfileId === firstProfileId) {
-                console.log("[v0] Profile ID successfully saved and verified");
                 toast({
                   title: "Profile Selected",
                   description: `Profile "${data.profiles[0].name}" is now active for connections.`,
@@ -221,14 +213,9 @@ export default function ConnectionsPage() {
       }
 
       const newProfile = await response.json();
-      console.log("[v0] Created profile:", newProfile);
 
       if (newProfile.profile && newProfile.profile._id) {
         try {
-          console.log(
-            "[v0] Attempting to save new profile ID to settings:",
-            newProfile.profile._id
-          );
           const saveResponse = await fetch("/api/settings", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -244,7 +231,6 @@ export default function ConnectionsPage() {
           }
 
           const saveResult = await saveResponse.json();
-          console.log("[v0] New profile ID save result:", saveResult);
         } catch (error) {
           console.error("[v0] Failed to auto-save new profile ID:", error);
           toast({
@@ -348,7 +334,6 @@ export default function ConnectionsPage() {
       }
 
       const data = await response.json();
-      console.log("[v0] Fetched accounts:", data);
 
       const updatedPlatforms = initializePlatforms();
 
@@ -363,8 +348,16 @@ export default function ConnectionsPage() {
 
           if (platform) {
             platform.connected = true;
+            const resolvedId =
+              account._id ||
+              account.id ||
+              account.accountId ||
+              account.lateAccountId ||
+              account.providerAccountId ||
+              account.externalAccountId ||
+              "unknown";
             platform.accounts.push({
-              id: account.id || account.accountId || "unknown",
+              _id: resolvedId,
               username: account.username || account.name || "Unknown User",
               connectedDate: account.connectedAt
                 ? new Date(account.connectedAt).toLocaleDateString()
@@ -412,6 +405,21 @@ export default function ConnectionsPage() {
     const connectedPlatform = urlParams.get("connected");
 
     if (connectedPlatform) {
+      // If this window was opened as a popup, notify the opener and close
+      if (window.opener && window.opener !== window) {
+        try {
+          window.opener.postMessage(
+            { type: "late-connected", platform: connectedPlatform },
+            window.location.origin
+          );
+        } catch (err) {
+          // no-op
+        }
+        window.close();
+        return;
+      }
+
+      // Otherwise handle success directly in this window
       toast({
         title: "Connection Successful",
         description: `${connectedPlatform} account has been connected successfully.`,
@@ -422,6 +430,27 @@ export default function ConnectionsPage() {
 
       window.history.replaceState({}, document.title, window.location.pathname);
     }
+  }, []);
+
+  // Listen for connection success messages from the OAuth popup
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data as { type?: string; platform?: string };
+      if (data?.type === "late-connected") {
+        toast({
+          title: "Connection Successful",
+          description: `${data.platform || "Account"} connected successfully.`,
+        });
+        setConnectingPlatform(null);
+        setTimeout(() => {
+          fetchConnectedAccounts();
+        }, 500);
+      }
+    }
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
   }, []);
 
   const handleConnect = async (platformName: string) => {
@@ -437,11 +466,21 @@ export default function ConnectionsPage() {
     try {
       setConnectingPlatform(platformName);
 
-      console.log(
-        "[v0] Attempting to connect platform:",
-        platformName,
-        "with profile:",
-        selectedProfile
+      // Open a synchronous popup immediately to avoid browser popup blocking
+      const popup = window.open(
+        "about:blank",
+        "oauth",
+        "width=600,height=600,scrollbars=yes,resizable=yes"
+      );
+
+      if (!popup) {
+        throw new Error(
+          "Failed to open OAuth popup. Please allow popups for this site."
+        );
+      }
+
+      popup.document.write(
+        '<p style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji; padding: 16px;">Redirecting to provider…</p>'
       );
 
       const response = await fetch("/api/late/connect", {
@@ -454,10 +493,9 @@ export default function ConnectionsPage() {
       });
 
       const data = await response.json();
-      console.log("[v0] Connect response:", data);
-
       if (data.error === "Late configuration missing") {
         console.error("[v0] Late configuration missing:", data.missing);
+        popup.close();
         toast({
           title: "Configuration Required",
           description:
@@ -469,22 +507,13 @@ export default function ConnectionsPage() {
       }
 
       if (data.error) {
+        popup.close();
         throw new Error(data.error);
       }
 
-      if (data.connectUrl) {
-        console.log("[v0] Opening OAuth popup with URL:", data.connectUrl);
-        const popup = window.open(
-          data.connectUrl,
-          "oauth",
-          "width=600,height=600,scrollbars=yes,resizable=yes"
-        );
-
-        if (!popup) {
-          throw new Error(
-            "Failed to open OAuth popup. Please allow popups for this site."
-          );
-        }
+      const authUrl = data.authUrl || data.connectUrl;
+      if (authUrl) {
+        popup.location.href = authUrl;
 
         toast({
           title: "Redirecting to OAuth",
@@ -495,13 +524,13 @@ export default function ConnectionsPage() {
           if (popup?.closed) {
             clearInterval(checkClosed);
             setConnectingPlatform(null);
-            console.log("[v0] OAuth popup closed, refreshing accounts");
             setTimeout(() => {
               fetchConnectedAccounts();
             }, 1000);
           }
         }, 1000);
       } else {
+        popup.close();
         throw new Error("No OAuth URL received from server");
       }
     } catch (error) {
@@ -519,6 +548,15 @@ export default function ConnectionsPage() {
 
   const handleDisconnect = async (platformName: string, accountId: string) => {
     try {
+      if (!accountId || accountId === "unknown") {
+        toast({
+          title: "Missing account id",
+          description:
+            "Cannot disconnect because the Late account id is unknown.",
+          variant: "destructive",
+        });
+        return;
+      }
       setDisconnectingAccount(accountId);
 
       const response = await fetch("/api/late/disconnect", {
@@ -527,6 +565,7 @@ export default function ConnectionsPage() {
         body: JSON.stringify({
           platform: platformName.toLowerCase(),
           accountId,
+          profileId: selectedProfile,
         }),
       });
 
@@ -535,7 +574,7 @@ export default function ConnectionsPage() {
           prev.map((platform) => {
             if (platform.name === platformName) {
               const updatedAccounts = platform.accounts.filter(
-                (acc) => acc.id !== accountId
+                (acc) => acc._id !== accountId
               );
               return {
                 ...platform,
@@ -752,10 +791,10 @@ export default function ConnectionsPage() {
 
                         {platform.accounts.map((account) => {
                           const isDisconnecting =
-                            disconnectingAccount === account.id;
+                            disconnectingAccount === account._id;
 
                           return (
-                            <div key={account.id} className="space-y-2">
+                            <div key={account._id} className="space-y-2">
                               <div className="text-sm font-medium">
                                 {account.username}
                               </div>
@@ -768,11 +807,11 @@ export default function ConnectionsPage() {
                                 </div>
                               )}
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <span>id: {account.id}</span>
+                                <span>id: {account._id}</span>
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => copyToClipboard(account.id)}
+                                  onClick={() => copyToClipboard(account._id)}
                                 >
                                   <Copy className="h-3 w-3" />
                                 </Button>
@@ -793,9 +832,11 @@ export default function ConnectionsPage() {
                                   size="sm"
                                   className="text-xs bg-transparent"
                                   onClick={() =>
-                                    handleDisconnect(platform.name, account.id)
+                                    handleDisconnect(platform.name, account._id)
                                   }
-                                  disabled={isDisconnecting}
+                                  disabled={
+                                    isDisconnecting || account._id === "unknown"
+                                  }
                                 >
                                   {isDisconnecting ? (
                                     <>
@@ -834,25 +875,6 @@ export default function ConnectionsPage() {
                                 connect.
                               </p>
                             </div>
-
-                            <div className="flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-xs bg-transparent"
-                              >
-                                <Copy className="h-3 w-3 mr-1" />
-                                copy
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-xs bg-transparent"
-                              >
-                                <ExternalLink className="h-3 w-3 mr-1" />
-                                invite link
-                              </Button>
-                            </div>
                           </div>
                         ) : (
                           <div className="space-y-3">
@@ -870,25 +892,6 @@ export default function ConnectionsPage() {
                                 "+ connect"
                               )}
                             </Button>
-
-                            <div className="flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-xs bg-transparent"
-                              >
-                                <Copy className="h-3 w-3 mr-1" />
-                                copy
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-xs bg-transparent"
-                              >
-                                <ExternalLink className="h-3 w-3 mr-1" />
-                                invite link
-                              </Button>
-                            </div>
                           </div>
                         )}
                       </div>

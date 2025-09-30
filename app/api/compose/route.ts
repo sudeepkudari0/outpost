@@ -10,13 +10,6 @@ export async function POST(request: NextRequest) {
       contentType = "promotional",
     } = await request.json();
 
-    console.log("[v0] Compose request:", {
-      prompt,
-      tone,
-      platform,
-      contentType,
-    });
-
     if (!prompt) {
       return NextResponse.json(
         { error: "Prompt is required" },
@@ -96,10 +89,6 @@ Return JSON with a single key "${platform}" containing the optimized content for
     return NextResponse.json(parsedContent);
   } catch (error) {
     console.error("Compose error:", error);
-    console.log(
-      "[v0] Detailed error:",
-      error instanceof Error ? error.message : String(error)
-    );
     return NextResponse.json(
       { error: "Failed to generate content" },
       { status: 500 }

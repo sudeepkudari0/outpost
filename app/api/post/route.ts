@@ -116,8 +116,6 @@ export async function POST(request: NextRequest) {
           }),
     };
 
-    console.log("[v0] Posting to Late API:", postData);
-
     const result = await late.createPost(postData);
 
     const message =

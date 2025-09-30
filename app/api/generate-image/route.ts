@@ -30,7 +30,6 @@ export async function POST(request: NextRequest) {
     }
 
     const p = presign.result;
-    console.log(p);
     const uploadUrl: string | undefined = p.presignedUrl;
     if (!uploadUrl) {
       throw new Error("Presign did not include an upload URL");

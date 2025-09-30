@@ -3,7 +3,7 @@ import { late } from "@/lib/late";
 
 export async function POST(request: NextRequest) {
   try {
-    const { platform, accountId } = await request.json();
+    const { platform, accountId, profileId } = await request.json();
 
     if (!platform || !accountId) {
       return NextResponse.json(
@@ -12,7 +12,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await late.disconnectAccount(accountId);
+    // Normalize platform alias (twitter/x)
+    const normalizedPlatform =
+      platform?.toLowerCase() === "x" || platform?.toLowerCase() === "twitter"
+        ? "twitter"
+        : platform;
+
+    await late.disconnectAccount(accountId, {
+      profileId,
+      platform: normalizedPlatform,
+    });
 
     return NextResponse.json({
       success: true,
@@ -20,9 +29,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Disconnect error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    const message =
+      error instanceof Error ? error.message : "Failed to disconnect account";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

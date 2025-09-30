@@ -148,7 +148,6 @@ export default function CreatePostPage() {
         );
         const data = await response.json();
         const accountList: Account[] = data.accounts || [];
-        console.log("accountList", accountList);
         setAccounts(accountList);
 
         // Default select all accounts

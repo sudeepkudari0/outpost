@@ -14,10 +14,11 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 import { useProfile } from "@/components/profile-context";
+import { usePathname } from "next/navigation";
 
 export function ProfileSwitcher({ className }: { className?: string }) {
+  const pathname = usePathname();
   const { profiles, profileId, setProfileId, loading } = useProfile();
-  console.log("profiles", profiles);
   const selectedProfile = React.useMemo(
     () => profiles.find((p) => p.id === profileId) || null,
     [profiles, profileId]
@@ -36,7 +37,13 @@ export function ProfileSwitcher({ className }: { className?: string }) {
     .toUpperCase();
 
   return (
-    <div className={cn("flex items-center", className)}>
+    <div
+      className={cn(
+        "flex items-center",
+        className,
+        pathname.includes("/dashboard/connections") && "hidden"
+      )}
+    >
       <DropdownMenu>
         <DropdownMenuTrigger asChild className="px-2 py-5">
           <Button variant="outline" size="sm" className="gap-2">
