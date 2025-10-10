@@ -2,7 +2,6 @@
 
 import type React from 'react';
 
-import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -11,9 +10,10 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Select,
   SelectContent,
@@ -21,11 +21,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { useProfile } from '@/components/profile-context';
+import { useEffect, useMemo, useState } from 'react';
+
+type Profile = {
+  id: string;
+  name?: string;
+  slug?: string;
+};
 
 type Account = {
   _id: string;
@@ -104,9 +109,10 @@ const toneOptions = [
 
 export default function CreatePostPage() {
   const { toast } = useToast();
-  const { profileId } = useProfile();
 
   // Form state
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [selectedProfileId, setSelectedProfileId] = useState<string>('');
   const [topic, setTopic] = useState('');
   const [tone, setTone] = useState('professional');
   const [contentType, setContentType] = useState('promotional');
@@ -136,14 +142,42 @@ export default function CreatePostPage() {
     });
   }
 
+  // Load profiles on component mount
+  useEffect(() => {
+    async function loadProfiles() {
+      try {
+        const response = await fetch('/api/late/profiles');
+        const data = await response.json();
+        const rawList = Array.isArray(data?.profiles)
+          ? data.profiles
+          : Array.isArray(data)
+            ? data
+            : [];
+        const normalized: Profile[] = rawList.map((p: any) => ({
+          id: p._id,
+          name: p.name,
+          slug: p.slug,
+        }));
+        setProfiles(normalized);
+      } catch (error) {
+        toast({
+          title: 'Error',
+          description: 'Failed to load profiles',
+          variant: 'destructive',
+        });
+      }
+    }
+    loadProfiles();
+  }, [toast]);
+
   // Load accounts when profile changes
   useEffect(() => {
-    if (!profileId) return;
+    if (!selectedProfileId) return;
     async function loadAccounts() {
       try {
         const response = await fetch(
           `/api/late/accounts?profileId=${encodeURIComponent(
-            profileId as string
+            selectedProfileId
           )}`
         );
         const data = await response.json();
@@ -165,7 +199,7 @@ export default function CreatePostPage() {
       }
     }
     loadAccounts();
-  }, [toast, profileId]);
+  }, [toast, selectedProfileId]);
 
   const selectedAccountIds = useMemo(
     () =>
@@ -176,12 +210,20 @@ export default function CreatePostPage() {
   );
 
   async function handleConnect(platform: string) {
+    if (!selectedProfileId) {
+      toast({
+        title: 'Error',
+        description: 'Please select a profile first',
+        variant: 'destructive',
+      });
+      return;
+    }
     setBusy(true);
     try {
       const response = await fetch('/api/late/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform, profileId }),
+        body: JSON.stringify({ platform, profileId: selectedProfileId }),
       });
       const { connectUrl } = await response.json();
       window.open(connectUrl, '_blank');
@@ -446,6 +488,36 @@ export default function CreatePostPage() {
           </p>
         </div>
 
+        {/* Profile Selection */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Select Profile</CardTitle>
+            <CardDescription>
+              Choose which profile to use for this post
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <Label htmlFor="profile">Profile</Label>
+              <Select
+                value={selectedProfileId}
+                onValueChange={setSelectedProfileId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a profile" />
+                </SelectTrigger>
+                <SelectContent>
+                  {profiles.map(profile => (
+                    <SelectItem key={profile.id} value={profile.id}>
+                      {profile.name || profile.slug || profile.id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Connected Accounts */}
         <Card>
           <CardHeader>
@@ -455,7 +527,13 @@ export default function CreatePostPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="">
-            {accounts.length > 0 ? (
+            {!selectedProfileId ? (
+              <div className="space-y-2">
+                <p className="text-muted-foreground h-[100px] flex items-center justify-center">
+                  Please select a profile first to view connected accounts.
+                </p>
+              </div>
+            ) : accounts.length > 0 ? (
               <div className="gap-2 grid grid-cols-1 md:grid-cols-2">
                 {accounts.map((account, index) => (
                   <div key={index} className="flex items-center space-x-2">
@@ -478,7 +556,7 @@ export default function CreatePostPage() {
               </div>
             ) : (
               <div className="space-y-2">
-                <p className="text-2xl text-muted-foreground h-[100px] flex items-center justify-center">
+                <p className="text-muted-foreground h-[100px] flex items-center justify-center">
                   No accounts connected. Please connect your accounts first.
                 </p>
               </div>

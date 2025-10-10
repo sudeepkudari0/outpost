@@ -1,0 +1,480 @@
+/**
+ * Meta OAuth Service
+ * Handles Instagram and Facebook authentication via Meta for Developers
+ * Industry-standard OAuth 2.0 implementation
+ */
+
+import { prisma } from '@/lib/db';
+import type { Platform } from '@prisma/client';
+
+export interface MetaOAuthConfig {
+  appId: string;
+  appSecret: string;
+  redirectUri: string;
+}
+
+export interface MetaTokenResponse {
+  access_token: string;
+  token_type: string;
+  expires_in?: number;
+}
+
+export interface MetaUserProfile {
+  id: string;
+  name?: string;
+  username?: string;
+  profile_picture_url?: string;
+  account_type?: string;
+}
+
+export interface InstagramAccount {
+  id: string;
+  username: string;
+  name?: string;
+  profile_picture_url?: string;
+  account_type?: string;
+}
+
+export interface FacebookPage {
+  id: string;
+  name: string;
+  access_token: string;
+  category?: string;
+  picture?: {
+    data: {
+      url: string;
+    };
+  };
+}
+
+export class MetaOAuthService {
+  private config: MetaOAuthConfig;
+  private readonly authBaseUrlFacebook =
+    'https://www.facebook.com/v21.0/dialog/oauth';
+  private readonly authBaseUrlInstagram =
+    'https://www.instagram.com/oauth/authorize';
+  private readonly facebookTokenUrl =
+    'https://graph.facebook.com/v21.0/oauth/access_token';
+  private readonly instagramTokenUrl =
+    'https://api.instagram.com/oauth/access_token';
+  private readonly instagramLongLivedTokenUrl =
+    'https://graph.instagram.com/access_token';
+  private readonly graphApiUrl = 'https://graph.facebook.com/v21.0';
+
+  constructor(config: MetaOAuthConfig) {
+    this.config = config;
+  }
+
+  /**
+   * Generate OAuth authorization URL for Instagram
+   */
+  getInstagramAuthUrl(state: string): string {
+    const params = new URLSearchParams({
+      client_id: this.config.appId,
+      redirect_uri: this.config.redirectUri,
+      response_type: 'code',
+      // Use business scopes as requested by Meta for Developers
+      scope: [
+        'instagram_business_basic',
+        'instagram_business_manage_messages',
+        'instagram_business_manage_comments',
+        'instagram_business_content_publish',
+        'instagram_business_manage_insights',
+      ].join(' '),
+      state,
+      force_reauth: 'true',
+    });
+
+    return `${this.authBaseUrlInstagram}?${params.toString()}`;
+  }
+
+  /**
+   * Generate OAuth authorization URL for Facebook Pages
+   */
+  getFacebookAuthUrl(state: string): string {
+    const params = new URLSearchParams({
+      client_id: this.config.appId,
+      redirect_uri: this.config.redirectUri,
+      response_type: 'code',
+      scope: [
+        'pages_show_list',
+        'pages_read_engagement',
+        'pages_manage_posts',
+        'pages_manage_metadata',
+        'public_profile',
+      ].join(','),
+      state,
+    });
+
+    return `${this.authBaseUrlFacebook}?${params.toString()}`;
+  }
+
+  /**
+   * Exchange authorization code for Facebook access token
+   */
+  async exchangeCodeForFacebookToken(code: string): Promise<MetaTokenResponse> {
+    const params = new URLSearchParams({
+      client_id: this.config.appId,
+      client_secret: this.config.appSecret,
+      redirect_uri: this.config.redirectUri,
+      grant_type: 'authorization_code',
+      code,
+    });
+
+    const response = await fetch(this.facebookTokenUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString(),
+    });
+
+    console.log(
+      'Facebook token response status:',
+      response.status,
+      response.statusText
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to exchange code for Facebook token: ${error}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Exchange authorization code for Instagram access token
+   */
+  async exchangeCodeForInstagramToken(code: string): Promise<{
+    access_token: string;
+    user_id: number;
+    permissions: string[];
+  }> {
+    const params = new URLSearchParams({
+      client_id: this.config.appId,
+      client_secret: this.config.appSecret,
+      redirect_uri: this.config.redirectUri,
+      grant_type: 'authorization_code',
+      code,
+    });
+
+    const response = await fetch(this.instagramTokenUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString(),
+    });
+
+    console.log(
+      'Instagram token response status:',
+      response.status,
+      response.statusText
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to exchange code for Instagram token: ${error}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Exchange authorization code for access token (backwards compatibility)
+   * @deprecated Use exchangeCodeForFacebookToken or exchangeCodeForInstagramToken instead
+   */
+  async exchangeCodeForToken(code: string): Promise<MetaTokenResponse> {
+    return this.exchangeCodeForFacebookToken(code);
+  }
+
+  /**
+   * Get long-lived access token for Facebook (expires in ~60 days)
+   */
+  async getFacebookLongLivedToken(
+    shortLivedToken: string
+  ): Promise<MetaTokenResponse> {
+    const params = new URLSearchParams({
+      grant_type: 'fb_exchange_token',
+      client_id: this.config.appId,
+      client_secret: this.config.appSecret,
+      fb_exchange_token: shortLivedToken,
+    });
+
+    const response = await fetch(this.facebookTokenUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString(),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to get Facebook long-lived token: ${error}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Get long-lived access token for Instagram (expires in ~60 days)
+   */
+  async getInstagramLongLivedToken(
+    shortLivedToken: string
+  ): Promise<MetaTokenResponse> {
+    const params = new URLSearchParams({
+      grant_type: 'ig_exchange_token',
+      client_secret: this.config.appSecret,
+      access_token: shortLivedToken,
+    });
+
+    const response = await fetch(
+      `${this.instagramLongLivedTokenUrl}?${params.toString()}`,
+      {
+        method: 'GET',
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to get Instagram long-lived token: ${error}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Get long-lived access token (backwards compatibility)
+   * @deprecated Use getFacebookLongLivedToken or getInstagramLongLivedToken instead
+   */
+  async getLongLivedToken(shortLivedToken: string): Promise<MetaTokenResponse> {
+    return this.getFacebookLongLivedToken(shortLivedToken);
+  }
+
+  /**
+   * Get user's Facebook pages
+   */
+  async getUserPages(accessToken: string): Promise<FacebookPage[]> {
+    const response = await fetch(
+      `${this.graphApiUrl}/me/accounts?fields=id,name,access_token,category,picture&access_token=${accessToken}`,
+      {
+        method: 'GET',
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to fetch user pages: ${error}`);
+    }
+
+    const data = await response.json();
+    return data.data || [];
+  }
+
+  /**
+   * Get Instagram Business Account connected to a Facebook Page
+   */
+  async getPageInstagramAccount(
+    pageId: string,
+    pageAccessToken: string
+  ): Promise<InstagramAccount | null> {
+    const response = await fetch(
+      `${this.graphApiUrl}/${pageId}?fields=instagram_business_account&access_token=${pageAccessToken}`,
+      {
+        method: 'GET',
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error(
+        `Failed to fetch Instagram account for page ${pageId}:`,
+        error
+      );
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (!data.instagram_business_account) {
+      return null;
+    }
+
+    const igAccountId = data.instagram_business_account.id;
+
+    // Fetch Instagram account details
+    const igResponse = await fetch(
+      `${this.graphApiUrl}/${igAccountId}?fields=id,username,name,profile_picture_url,account_type&access_token=${pageAccessToken}`,
+      {
+        method: 'GET',
+      }
+    );
+
+    if (!igResponse.ok) {
+      return null;
+    }
+
+    return igResponse.json();
+  }
+
+  /**
+   * Get permanent page access token
+   */
+  async getPageLongLivedToken(
+    pageId: string,
+    userLongLivedToken: string
+  ): Promise<string> {
+    const response = await fetch(
+      `${this.graphApiUrl}/${pageId}?fields=access_token&access_token=${userLongLivedToken}`,
+      {
+        method: 'GET',
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to get page token: ${error}`);
+    }
+
+    const data = await response.json();
+    return data.access_token;
+  }
+
+  /**
+   * Validate access token
+   */
+  async validateToken(accessToken: string): Promise<boolean> {
+    try {
+      const response = await fetch(
+        `${this.graphApiUrl}/me?access_token=${accessToken}`,
+        {
+          method: 'GET',
+        }
+      );
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Revoke access token
+   */
+  async revokeToken(accessToken: string): Promise<void> {
+    const response = await fetch(
+      `${this.graphApiUrl}/me/permissions?access_token=${accessToken}`,
+      {
+        method: 'DELETE',
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to revoke token: ${error}`);
+    }
+  }
+}
+
+/**
+ * Create Meta OAuth service instance
+ */
+export function createMetaOAuthService(redirectUri: string): MetaOAuthService {
+  const appId = process.env.META_APP_ID;
+  const appSecret = process.env.META_APP_SECRET;
+
+  if (!appId || !appSecret) {
+    throw new Error(
+      'Meta OAuth credentials not configured. Please set META_APP_ID and META_APP_SECRET environment variables.'
+    );
+  }
+
+  return new MetaOAuthService({
+    appId,
+    appSecret,
+    redirectUri,
+  });
+}
+
+/**
+ * Save connected account to database
+ */
+export async function saveConnectedAccount(params: {
+  profileId: string;
+  platform: Platform;
+  platformUserId: string;
+  username: string;
+  displayName?: string;
+  profileImageUrl?: string;
+  accessToken: string;
+  refreshToken?: string;
+  tokenExpiresAt?: Date;
+  platformData?: any;
+}) {
+  const {
+    profileId,
+    platform,
+    platformUserId,
+    username,
+    displayName,
+    profileImageUrl,
+    accessToken,
+    refreshToken,
+    tokenExpiresAt,
+    platformData,
+  } = params;
+
+  // Check if account already exists
+  const existing = await prisma.connectedAccount.findFirst({
+    where: {
+      profileId,
+      platform,
+      platformUserId,
+    },
+  });
+
+  if (existing) {
+    // Update existing account
+    return prisma.connectedAccount.update({
+      where: { id: existing.id },
+      data: {
+        username,
+        displayName,
+        profileImageUrl,
+        accessToken,
+        refreshToken,
+        tokenExpiresAt,
+        platformData,
+        isActive: true,
+        lastSyncedAt: new Date(),
+      },
+    });
+  }
+
+  // Create new account
+  return prisma.connectedAccount.create({
+    data: {
+      profileId,
+      platform,
+      platformUserId,
+      username,
+      displayName,
+      profileImageUrl,
+      accessToken,
+      refreshToken,
+      tokenExpiresAt,
+      platformData,
+      isActive: true,
+      connectedAt: new Date(),
+      lastSyncedAt: new Date(),
+    },
+  });
+}
+
+/**
+ * Generate a secure random state for OAuth
+ */
+export function generateOAuthState(): string {
+  return crypto.randomUUID();
+}
