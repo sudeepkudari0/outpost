@@ -1,13 +1,5 @@
 import type { NextConfig } from 'next';
-import createPwaPlugin from 'next-pwa';
 const { PrismaPlugin } = require('@prisma/nextjs-monorepo-workaround-plugin');
-
-const withPWA = createPwaPlugin({
-  dest: 'public',
-  register: true,
-  skipWaiting: true,
-  disable: process.env.NODE_ENV === 'development',
-});
 
 const nextConfig: NextConfig = {
   webpack: (config, { isServer }) => {
@@ -31,4 +23,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withPWA(nextConfig);
+export default nextConfig;
