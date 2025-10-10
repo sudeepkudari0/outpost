@@ -9,23 +9,270 @@ datasource db {
 }
 
 model User {
-  id          String     @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  name        String
-  role        UserRole   @default(USER)
-  gender      String?
-  isVerified  Boolean    @default(false)
-  status      UserStatus @default(ACTIVE)
-  email       String?
-  whatsapp    String?
-  image       String?
-  passwordSet Boolean    @default(false)
+  id             String     @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  name           String
+  role           UserRole   @default(USER)
+  gender         String?
+  isVerified     Boolean    @default(false)
+  status         UserStatus @default(ACTIVE)
+  email          String?
+  whatsapp       String?
+  image          String?
+  passwordSet    Boolean    @default(false)
+  subscriptionId String?    @db.ObjectId
+
+  subscription   Subscription?
+  usage          Usage?
+  socialProfiles SocialProfile[]
+  posts          Post[]
 
   Account Account[]
   Session Session[]
 
   @@unique([email, whatsapp])
+}
+
+model Subscription {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @unique @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tier   SubscriptionTier   @default(FREE)
+  status SubscriptionStatus @default(ACTIVE)
+
+  // Pricing
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAt           DateTime?
+  canceledAt         DateTime?
+
+  // Stripe/Payment integration (for later)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  stripePriceId        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum SubscriptionTier {
+  FREE
+  PRO
+  BUSINESS
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  CANCELED
+  PAST_DUE
+  TRIALING
+}
+
+model Usage {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @unique @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Daily counters (reset every day)
+  postsToday        Int      @default(0)
+  lastPostResetDate DateTime @default(now())
+
+  // Monthly counters
+  postsThisMonth Int      @default(0)
+  lastMonthReset DateTime @default(now())
+
+  // Profile count
+  profileCount Int @default(0)
+
+  updatedAt DateTime @updatedAt
+}
+
+model UsageLog {
+  id        String      @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String      @db.ObjectId
+  action    UsageAction
+  timestamp DateTime    @default(now())
+  metadata  Json? // Store additional context
+
+  @@index([userId, timestamp])
+}
+
+enum UsageAction {
+  POST_CREATED
+  POST_SCHEDULED
+  POST_PUBLISHED
+  PROFILE_CONNECTED
+  PROFILE_DISCONNECTED
+  AI_GENERATION
+}
+
+model SocialProfile {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Profile info
+  name        String
+  description String?
+  color       String? @default("#ffeda0")
+  isDefault   Boolean @default(false)
+
+  // Connection to getlate.dev (for now, keep compatibility)
+  lateProfileId String? // External Late.dev profile ID
+
+  // Connected accounts
+  connectedAccounts ConnectedAccount[]
+  posts             Post[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model ConnectedAccount {
+  id        String        @id @default(auto()) @map("_id") @db.ObjectId
+  profileId String        @db.ObjectId
+  profile   SocialProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  platform        Platform
+  platformUserId  String // Platform's user ID
+  username        String
+  displayName     String?
+  profileImageUrl String?
+
+  // OAuth tokens (encrypted in production)
+  accessToken    String?   @db.String
+  refreshToken   String?   @db.String
+  tokenExpiresAt DateTime?
+
+  // getlate.dev compatibility
+  lateAccountId String? // External Late.dev account ID
+
+  // Metadata
+  platformData Json? // Store platform-specific data
+  isActive     Boolean @default(true)
+
+  connectedAt  DateTime  @default(now())
+  lastSyncedAt DateTime?
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([profileId, platform, platformUserId])
+  @@index([profileId])
+}
+
+enum Platform {
+  FACEBOOK
+  INSTAGRAM
+  TWITTER
+  LINKEDIN
+  TIKTOK
+  YOUTUBE
+  THREADS
+}
+
+model Post {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  profileId String        @db.ObjectId
+  profile   SocialProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  // Content
+  content   Json // Platform-specific content
+  mediaUrls String[]
+
+  // Scheduling
+  status           PostStatus    @default(DRAFT)
+  publishingOption PublishOption @default(NOW)
+  scheduledFor     DateTime?
+  timezone         String?       @default("UTC")
+
+  // Publishing tracking
+  publishedAt DateTime?
+  platforms   PostPlatform[]
+
+  // getlate.dev compatibility
+  latePostId  String? // External Late.dev post ID
+  lateDraftId String? // External Late.dev draft ID
+
+  // Metadata
+  tags        String[]
+  aiGenerated Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([profileId])
+  @@index([scheduledFor])
+}
+
+model PostPlatform {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  postId String @db.ObjectId
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  platform  Platform
+  accountId String   @db.ObjectId
+
+  // Publishing status per platform
+  status       PublishStatus @default(PENDING)
+  publishedId  String? // Platform's post ID
+  publishedUrl String?
+  errorMessage String?
+
+  publishedAt DateTime?
+
+  @@unique([postId, platform, accountId])
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  CANCELED
+}
+
+enum PublishOption {
+  NOW
+  SCHEDULE
+  DRAFT
+}
+
+enum PublishStatus {
+  PENDING
+  PUBLISHING
+  PUBLISHED
+  FAILED
+}
+
+model TierConfig {
+  id   String           @id @default(auto()) @map("_id") @db.ObjectId
+  tier SubscriptionTier @unique
+
+  // Limits
+  maxProfiles      Int
+  maxPostsPerDay   Int
+  maxPostsPerMonth Int
+
+  // Features
+  features Json // Array of feature flags
+
+  // Pricing (for later)
+  price         Float?
+  currency      String? @default("USD")
+  billingPeriod String? // "monthly", "yearly"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Account {

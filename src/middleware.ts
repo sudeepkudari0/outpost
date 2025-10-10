@@ -20,7 +20,7 @@ export default auth(async req => {
   // Handle root route
   if (isRootRoute) {
     if (isLoggedIn) {
-      return NextResponse.redirect(new URL('/assistant', nextUrl));
+      return NextResponse.redirect(new URL('/dashboard', nextUrl));
     } else {
       return NextResponse.redirect(new URL('/login', nextUrl));
     }
@@ -33,7 +33,7 @@ export default auth(async req => {
 
   // Redirect logged-in users away from auth pages
   if (isLoggedIn && isAuthRoute) {
-    return NextResponse.redirect(new URL('/assistant', nextUrl));
+    return NextResponse.redirect(new URL('/dashboard', nextUrl));
   }
 
   // Redirect non-logged-in users to login
