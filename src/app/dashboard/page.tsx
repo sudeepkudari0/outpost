@@ -21,24 +21,9 @@ const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
 export default async function DashboardPage() {
   const postsQuery = new URLSearchParams({ limit: '100' });
 
-  const [postsRes, accountsRes] = await Promise.all([
-    fetch(`${baseUrl}/api/posts?${postsQuery.toString()}`, {
-      cache: 'no-store',
-    }),
-    fetch(`${baseUrl}/api/late/accounts`, {
-      cache: 'no-store',
-    }),
-  ]);
-
-  const postsJson = postsRes.ok ? await postsRes.json() : { posts: [] };
-  const accountsJson = accountsRes.ok
-    ? await accountsRes.json()
-    : { accounts: [] };
-
-  const posts: any[] = Array.isArray(postsJson.posts) ? postsJson.posts : [];
-  const accounts: any[] = Array.isArray(accountsJson.accounts)
-    ? accountsJson.accounts
-    : [];
+  // TODO: Replace with Meta API calls
+  const posts: any[] = [];
+  const accounts: any[] = [];
 
   const totalPosts = posts.length;
   const scheduledPosts = posts.filter(p => p.status === 'scheduled');
@@ -92,7 +77,7 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalPosts}</div>
-            <p className="text-xs text-muted-foreground">from Late</p>
+            <p className="text-xs text-muted-foreground">from Meta</p>
           </CardContent>
         </Card>
 

@@ -146,18 +146,8 @@ export default function CreatePostPage() {
   useEffect(() => {
     async function loadProfiles() {
       try {
-        const response = await fetch('/api/late/profiles');
-        const data = await response.json();
-        const rawList = Array.isArray(data?.profiles)
-          ? data.profiles
-          : Array.isArray(data)
-            ? data
-            : [];
-        const normalized: Profile[] = rawList.map((p: any) => ({
-          id: p._id,
-          name: p.name,
-          slug: p.slug,
-        }));
+        // TODO: Replace with Meta profiles API
+        const normalized: Profile[] = [];
         setProfiles(normalized);
       } catch (error) {
         toast({
@@ -175,13 +165,8 @@ export default function CreatePostPage() {
     if (!selectedProfileId) return;
     async function loadAccounts() {
       try {
-        const response = await fetch(
-          `/api/late/accounts?profileId=${encodeURIComponent(
-            selectedProfileId
-          )}`
-        );
-        const data = await response.json();
-        const accountList: Account[] = data.accounts || [];
+        // TODO: Replace with Meta accounts API
+        const accountList: Account[] = [];
         setAccounts(accountList);
 
         // Default select all accounts
@@ -220,13 +205,12 @@ export default function CreatePostPage() {
     }
     setBusy(true);
     try {
-      const response = await fetch('/api/late/connect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform, profileId: selectedProfileId }),
+      // TODO: Replace with Meta connect API
+      toast({
+        title: 'Not implemented',
+        description: 'Meta connection not yet implemented',
+        variant: 'destructive',
       });
-      const { connectUrl } = await response.json();
-      window.open(connectUrl, '_blank');
     } catch (error) {
       toast({
         title: 'Error',
