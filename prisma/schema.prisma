@@ -240,6 +240,7 @@ enum PublishOption {
 enum PublishStatus {
   PENDING
   PUBLISHING
+  SCHEDULED
   PUBLISHED
   FAILED
 }
