@@ -50,16 +50,25 @@ const rpcHandler = new RPCHandler(router, {
 });
 
 async function handleRequest(request: Request) {
-  const cookieName = '__Secure-authjs.session-token';
+  const cookieName =
+    process.env.NODE_ENV !== 'production'
+      ? '__Secure-authjs.session-token'
+      : 'authjs.session-token';
   const token = await getToken({
     req: request,
     cookieName,
     secret: process.env.AUTH_SECRET,
   });
+  const user = token
+    ? {
+        ...token,
+        id: token.sub,
+      }
+    : undefined;
   const { response } = await rpcHandler.handle(request, {
     prefix: '/api/orpc',
     context: {
-      session: token ? { user: token } : undefined,
+      session: token ? { user: user } : undefined,
     },
   });
 

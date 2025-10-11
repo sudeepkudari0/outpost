@@ -1,7 +1,5 @@
 import ConnectionsView from '@/components/connections/connection-view';
-import { client } from '@/lib/orpc/client';
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+import { client } from '@/lib/orpc/server';
 
 type Profile = {
   id: string;
@@ -125,6 +123,7 @@ async function getInitialData() {
     return { profiles, selectedProfile, platforms };
   } catch (err) {
     // Gracefully handle unauthenticated or other server errors
+    console.log('error', err);
     return {
       profiles: [],
       selectedProfile: '',

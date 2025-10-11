@@ -28,7 +28,7 @@ export interface MetaUserProfile {
 }
 
 export interface InstagramAccount {
-  id: string;
+  user_id: string;
   username: string;
   name?: string;
   profile_picture_url?: string;
@@ -60,6 +60,7 @@ export class MetaOAuthService {
   private readonly instagramLongLivedTokenUrl =
     'https://graph.instagram.com/access_token';
   private readonly graphApiUrl = 'https://graph.facebook.com/v21.0';
+  private readonly instagramMeUrl = 'https://graph.instagram.com/v24.0/me';
 
   constructor(config: MetaOAuthConfig) {
     this.config = config;
@@ -274,6 +275,27 @@ export class MetaOAuthService {
   }
 
   /**
+   * Get Instagram Business Account details
+   */
+  async getInstagramAccountDetails(
+    accessToken: string
+  ): Promise<InstagramAccount> {
+    const response = await fetch(
+      `${this.instagramMeUrl}?fields=user_id,username,name,profile_picture_url,account_type&access_token=${accessToken}`,
+      {
+        method: 'GET',
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to fetch Instagram account details: ${error}`);
+    }
+
+    return response.json();
+  }
+
+  /**
    * Get Instagram Business Account connected to a Facebook Page
    */
   async getPageInstagramAccount(
@@ -306,7 +328,7 @@ export class MetaOAuthService {
 
     // Fetch Instagram account details
     const igResponse = await fetch(
-      `${this.graphApiUrl}/${igAccountId}?fields=id,username,name,profile_picture_url,account_type&access_token=${pageAccessToken}`,
+      `${this.instagramMeUrl}?fields=user_id,username,name,profile_picture_url,account_type&access_token=${pageAccessToken}`,
       {
         method: 'GET',
       }

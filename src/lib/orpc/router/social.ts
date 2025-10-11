@@ -524,19 +524,28 @@ export const socialRouter = {
         const longLivedToken =
           await metaOAuth.getInstagramLongLivedToken(shortLivedToken);
 
-        // Save Instagram account directly
+        // Fetch Instagram account details
+        const accountDetails = await metaOAuth.getInstagramAccountDetails(
+          longLivedToken.access_token
+        );
+
+        console.log('Instagram accountDetails', accountDetails);
+
+        // Save Instagram account with actual details
         const account = await saveConnectedAccount({
           profileId,
           platform: 'INSTAGRAM' as Platform,
-          platformUserId: userId,
-          username: userId, // Will be updated with actual username later
-          displayName: userId,
+          platformUserId: accountDetails.user_id,
+          username: accountDetails.username,
+          displayName: accountDetails.name || accountDetails.username,
+          profileImageUrl: accountDetails.profile_picture_url,
           accessToken: longLivedToken.access_token,
           tokenExpiresAt: longLivedToken.expires_in
             ? new Date(Date.now() + longLivedToken.expires_in * 1000)
             : undefined,
           platformData: {
             permissions: tokenResponse.permissions,
+            account_type: accountDetails.account_type,
           },
         });
 
@@ -608,7 +617,7 @@ export const socialRouter = {
     .input(DisconnectAccountSchema)
     .output(z.object({ success: z.boolean() }))
     .handler(async ({ input, context }) => {
-      const { user, prisma } = context;
+      const { session, prisma } = context;
 
       if (!prisma) {
         throw new ORPCError('INTERNAL_SERVER_ERROR', {
@@ -632,13 +641,12 @@ export const socialRouter = {
         });
       }
 
-      if (account.profile.userId !== user.id) {
+      if (account.profile.userId !== session.user?.id) {
         throw new ORPCError('FORBIDDEN', {
           message: 'You do not have permission to disconnect this account',
         });
       }
 
-      // Optionally revoke token with Meta
       if (
         account.accessToken &&
         (account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK')
@@ -663,7 +671,7 @@ export const socialRouter = {
       // Log the disconnection
       await prisma.usageLog.create({
         data: {
-          userId: user.id,
+          userId: session.user?.id,
           action: 'PROFILE_DISCONNECTED',
           metadata: {
             platform: account.platform,

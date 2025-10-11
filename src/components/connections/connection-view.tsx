@@ -232,6 +232,8 @@ export default function ConnectionsView({
         profileId: selectedProfile,
       });
 
+      console.log('accounts', accounts);
+
       const updatedPlatforms = initializePlatforms();
 
       accounts.forEach(account => {
