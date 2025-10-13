@@ -1,5 +1,6 @@
 import ConnectionsView from '@/components/connections/connection-view';
 import { client } from '@/lib/orpc/server';
+import { Suspense } from 'react';
 
 type Profile = {
   id: string;
@@ -135,10 +136,12 @@ async function getInitialData() {
 export default async function ConnectionsPage() {
   const { profiles, selectedProfile, platforms } = await getInitialData();
   return (
-    <ConnectionsView
-      initialProfiles={profiles as Profile[]}
-      initialSelectedProfile={selectedProfile}
-      initialPlatforms={platforms as Platform[]}
-    />
+    <Suspense>
+      <ConnectionsView
+        initialProfiles={profiles as Profile[]}
+        initialSelectedProfile={selectedProfile}
+        initialPlatforms={platforms as Platform[]}
+      />
+    </Suspense>
   );
 }

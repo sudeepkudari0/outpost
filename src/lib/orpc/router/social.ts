@@ -398,9 +398,10 @@ export const socialRouter = {
       }
 
       // Build redirect URI
-      const baseUrl =
+      const baseRaw =
         process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-      const redirectUri = `${baseUrl}/dashboard/connections/callback`;
+      const baseUrl = baseRaw.replace(/\/+$/, '');
+      const redirectUri = `${baseUrl}/dashboard/connections`;
 
       // Generate state for CSRF protection and encode it with metadata
       // This encoded state will be sent to the OAuth provider and returned in the callback
@@ -506,9 +507,10 @@ export const socialRouter = {
         });
       }
 
-      const baseUrl =
+      const baseRaw =
         process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-      const redirectUri = `${baseUrl}/dashboard/connections/callback`;
+      const baseUrl = baseRaw.replace(/\/+$/, '');
+      const redirectUri = `${baseUrl}/dashboard/connections`;
       const metaOAuth = createMetaOAuthService(redirectUri);
 
       if (platform === 'INSTAGRAM') {
@@ -572,6 +574,7 @@ export const socialRouter = {
 
         // Get user's Facebook pages
         const pages = await metaOAuth.getUserPages(longLivedToken.access_token);
+        console.log('Facebook pages found:', pages.length, pages);
 
         for (const page of pages) {
           // Save each page as a connected account

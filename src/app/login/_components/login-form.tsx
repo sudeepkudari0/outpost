@@ -59,7 +59,7 @@ export const LoginForm = ({ callbackUrl }: { callbackUrl: string }) => {
         return;
       }
 
-      router.push(callbackUrl);
+      router.push(callbackUrl ? callbackUrl : '/dashboard');
       router.refresh();
     } catch (e) {
       setError('Something went wrong. Please try again.');

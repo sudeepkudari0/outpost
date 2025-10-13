@@ -78,7 +78,7 @@ export const CallbackClient = ({
               );
               setTimeout(() => {
                 window.close();
-              }, 1500);
+              }, 800);
             } catch (err) {
               console.error('Error communicating with opener:', err);
               // Fallback: redirect to connections page

@@ -12,8 +12,10 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { client } from '@/lib/orpc/client';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Copy, Loader2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const platformIcons = {
   TikTok: () => (
@@ -94,15 +96,17 @@ export default function ConnectionsView({
   initialPlatforms,
 }: ConnectionsViewProps) {
   const { toast } = useToast();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+
   const [selectedProfile, setSelectedProfile] = useState<string>(
     initialSelectedProfile || ''
   );
-  const [profiles, setProfiles] = useState<Profile[]>(initialProfiles || []);
-  const [platforms, setPlatforms] = useState<Platform[]>(
-    initialPlatforms || []
-  );
-  const [loading, setLoading] = useState(false);
   const [connectingPlatform, setConnectingPlatform] = useState<string | null>(
+    null
+  );
+  const [completingPlatform, setCompletingPlatform] = useState<string | null>(
     null
   );
   const [disconnectingAccount, setDisconnectingAccount] = useState<
@@ -164,27 +168,61 @@ export default function ConnectionsView({
       supported: false,
     },
   ];
+  // React Query: Profiles
+  const profilesQuery = useQuery({
+    queryKey: ['social', 'profiles'],
+    queryFn: () => client.social.getProfiles(),
+    initialData: initialProfiles || [],
+  });
 
-  const fetchProfiles = async () => {
-    try {
-      const profilesData = await client.social.getProfiles();
-      setProfiles(profilesData);
-
-      if (!selectedProfile && profilesData.length > 0) {
-        setSelectedProfile(profilesData[0].id);
-      }
-    } catch (error) {
-      console.error('Error fetching profiles:', error);
-      toast({
-        title: 'Profile Error',
-        description:
-          error instanceof Error ? error.message : 'Failed to load profiles',
-        variant: 'destructive',
-      });
+  // Ensure a selected profile exists
+  useEffect(() => {
+    if (!selectedProfile && profilesQuery.data && profilesQuery.data.length) {
+      setSelectedProfile(profilesQuery.data[0].id);
     }
-  };
+  }, [profilesQuery.data, selectedProfile]);
 
-  const createProfile = async () => {
+  // React Query: Accounts for selected profile
+  const accountsQuery = useQuery({
+    queryKey: ['social', 'accounts', selectedProfile],
+    enabled: !!selectedProfile,
+    queryFn: () =>
+      client.social.getConnectedAccounts({ profileId: selectedProfile }),
+    initialData: (() => {
+      // derive initial accounts from initialPlatforms
+      const flat = (initialPlatforms || []).flatMap(
+        p => p.accounts || []
+      ) as unknown as {
+        id: string;
+        platform: string;
+        username: string;
+        displayName?: string | null;
+        profileImageUrl?: string | null;
+        connectedAt: Date;
+        isActive: boolean;
+      }[];
+      return selectedProfile ? flat : undefined;
+    })(),
+  });
+
+  const platforms = useMemo(() => {
+    const base = initializePlatforms();
+    const accounts = accountsQuery.data || [];
+    accounts.forEach((account: any) => {
+      const platformName =
+        account.platform.charAt(0) + account.platform.slice(1).toLowerCase();
+      const platform = base.find(
+        p => p.name.toLowerCase() === platformName.toLowerCase()
+      );
+      if (platform) {
+        platform.connected = true;
+        platform.accounts.push(account as unknown as ConnectedAccount);
+      }
+    });
+    return base;
+  }, [accountsQuery.data]);
+
+  const createProfile = useCallback(async () => {
     if (!newProfileName.trim()) {
       toast({
         title: 'Profile Name Required',
@@ -209,7 +247,7 @@ export default function ConnectionsView({
 
       setNewProfileName('');
       setSelectedProfile(newProfile.id);
-      await fetchProfiles();
+      await queryClient.invalidateQueries({ queryKey: ['social', 'profiles'] });
     } catch (error) {
       console.error('Error creating profile:', error);
       toast({
@@ -221,86 +259,113 @@ export default function ConnectionsView({
     } finally {
       setCreatingProfile(false);
     }
-  };
+  }, [newProfileName, queryClient, toast]);
 
-  const fetchConnectedAccounts = async () => {
-    if (!selectedProfile) return;
-
-    try {
-      setLoading(true);
-      const accounts = await client.social.getConnectedAccounts({
-        profileId: selectedProfile,
-      });
-
-      console.log('accounts', accounts);
-
-      const updatedPlatforms = initializePlatforms();
-
-      accounts.forEach(account => {
-        const platformName =
-          account.platform.charAt(0) + account.platform.slice(1).toLowerCase();
-        const platform = updatedPlatforms.find(
-          p => p.name.toLowerCase() === platformName.toLowerCase()
-        );
-
-        if (platform) {
-          platform.connected = true;
-          platform.accounts.push(account as unknown as ConnectedAccount);
-        }
-      });
-
-      setPlatforms(updatedPlatforms);
-    } catch (error) {
-      console.error('Error fetching accounts:', error);
-      toast({
-        title: 'Connection Error',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Failed to load connected accounts',
-        variant: 'destructive',
-      });
-      setPlatforms(initializePlatforms());
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Handle URL params via next/navigation
   useEffect(() => {
-    // Do not fetch on mount; server page provided initial data
-  }, []);
+    const code = searchParams?.get('code');
+    const state = searchParams?.get('state');
+    const err = searchParams?.get('error');
 
-  useEffect(() => {
-    if (selectedProfile) {
-      fetchConnectedAccounts();
-    }
-  }, [selectedProfile]);
+    const finish = () => router.replace('/dashboard/connections');
 
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const success = urlParams.get('success');
-    const error = urlParams.get('error');
-
-    if (success) {
-      toast({
-        title: 'Connection Successful',
-        description: 'Account has been connected successfully.',
-      });
-      setTimeout(() => {
-        fetchConnectedAccounts();
-      }, 1000);
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-
-    if (error) {
+    if (err) {
       toast({
         title: 'Connection Failed',
         description: 'Failed to connect account. Please try again.',
         variant: 'destructive',
       });
-      window.history.replaceState({}, document.title, window.location.pathname);
+      finish();
+      return;
     }
-  }, []);
+
+    if (code && state) {
+      // If this runs in the popup, forward code/state to opener and close immediately
+      if (
+        typeof window !== 'undefined' &&
+        window.opener &&
+        window.opener !== window
+      ) {
+        try {
+          window.opener.postMessage(
+            {
+              type: 'oauth-code',
+              code,
+              state,
+            },
+            window.location.origin
+          );
+        } catch {}
+        setTimeout(() => window.close(), 100);
+        return;
+      }
+      // Decode state to know which platform and profile we are completing
+      try {
+        const parsed = JSON.parse(Buffer.from(state, 'base64').toString()) as {
+          platform: string;
+          profileId: string;
+        };
+        setCompletingPlatform(
+          parsed.platform.charAt(0) + parsed.platform.slice(1).toLowerCase()
+        );
+      } catch {}
+
+      (async () => {
+        try {
+          // Use selectedProfile if available, else derive from state
+          let profileIdToUse = selectedProfile;
+          if (!profileIdToUse) {
+            try {
+              const parsed = JSON.parse(
+                Buffer.from(state, 'base64').toString()
+              ) as { profileId: string };
+              profileIdToUse = parsed.profileId;
+            } catch {}
+          }
+
+          const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
+          const result = await client.social.completeConnection({
+            platform: stateData.platform as any,
+            profileId: stateData.profileId,
+            code,
+            state,
+          });
+
+          if (result.success) {
+            toast({
+              title: 'Connection Successful',
+              description: `${stateData.platform.toLowerCase()} connected successfully.`,
+            });
+            if (profileIdToUse) {
+              const key = ['social', 'accounts', profileIdToUse] as const;
+              await queryClient.invalidateQueries({ queryKey: key });
+              await queryClient.refetchQueries({ queryKey: key });
+            }
+            finish();
+          } else {
+            toast({
+              title: 'Connection Failed',
+              description: 'Failed to connect account. Please try again.',
+              variant: 'destructive',
+            });
+            finish();
+          }
+        } catch (error) {
+          toast({
+            title: 'Connection Failed',
+            description:
+              error instanceof Error
+                ? error.message
+                : 'Failed to connect account',
+            variant: 'destructive',
+          });
+          finish();
+        } finally {
+          setCompletingPlatform(null);
+        }
+      })();
+    }
+  }, [searchParams, router, queryClient, selectedProfile, toast]);
 
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
@@ -318,10 +383,68 @@ export default function ConnectionsView({
           title: 'Connection Successful',
           description: `${data.platform || 'Account'} connected successfully.`,
         });
-        setConnectingPlatform(null);
-        setTimeout(() => {
-          fetchConnectedAccounts();
-        }, 500);
+        (async () => {
+          if (selectedProfile) {
+            const key = ['social', 'accounts', selectedProfile] as const;
+            await queryClient.invalidateQueries({ queryKey: key });
+            await queryClient.refetchQueries({ queryKey: key });
+          }
+          setConnectingPlatform(null);
+        })();
+      } else if (
+        data?.type === 'oauth-code' &&
+        (data as any).code &&
+        (data as any).state
+      ) {
+        const code = (data as any).code as string;
+        const state = (data as any).state as string;
+        (async () => {
+          try {
+            const stateData = JSON.parse(
+              Buffer.from(state, 'base64').toString()
+            ) as {
+              platform: string;
+              profileId: string;
+            };
+            const platformName =
+              stateData.platform.charAt(0) +
+              stateData.platform.slice(1).toLowerCase();
+            setCompletingPlatform(platformName);
+            const result = await client.social.completeConnection({
+              platform: stateData.platform as any,
+              profileId: stateData.profileId,
+              code,
+              state,
+            });
+            if (result.success) {
+              toast({
+                title: 'Connection Successful',
+                description: `${stateData.platform.toLowerCase()} connected successfully.`,
+              });
+              const key = ['social', 'accounts', stateData.profileId] as const;
+              await queryClient.invalidateQueries({ queryKey: key });
+              await queryClient.refetchQueries({ queryKey: key });
+            } else {
+              toast({
+                title: 'Connection Failed',
+                description: 'Failed to connect account. Please try again.',
+                variant: 'destructive',
+              });
+            }
+          } catch (error) {
+            toast({
+              title: 'Connection Failed',
+              description:
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to connect account',
+              variant: 'destructive',
+            });
+          } finally {
+            setCompletingPlatform(null);
+            setConnectingPlatform(null);
+          }
+        })();
       } else if (data?.type === 'oauth-error') {
         toast({
           title: 'Connection Failed',
@@ -370,7 +493,6 @@ export default function ConnectionsView({
         profileId: selectedProfile,
       });
 
-      console.log('result', result);
       popup.location.href = result.authUrl;
 
       toast({
@@ -382,9 +504,11 @@ export default function ConnectionsView({
         if (popup?.closed) {
           clearInterval(checkClosed);
           setConnectingPlatform(null);
-          setTimeout(() => {
-            fetchConnectedAccounts();
-          }, 1000);
+          if (selectedProfile) {
+            queryClient.invalidateQueries({
+              queryKey: ['social', 'accounts', selectedProfile],
+            });
+          }
         }
       }, 1000);
     } catch (error) {
@@ -404,25 +528,12 @@ export default function ConnectionsView({
   const handleDisconnect = async (platformName: string, accountId: string) => {
     try {
       setDisconnectingAccount(accountId);
-
       await client.social.disconnectAccount({ accountId });
-
-      setPlatforms(prev =>
-        prev.map(platform => {
-          if (platform.name === platformName) {
-            const updatedAccounts = platform.accounts.filter(
-              acc => acc.id !== accountId
-            );
-            return {
-              ...platform,
-              accounts: updatedAccounts,
-              connected: updatedAccounts.length > 0,
-            };
-          }
-          return platform;
-        })
-      );
-
+      if (selectedProfile) {
+        await queryClient.invalidateQueries({
+          queryKey: ['social', 'accounts', selectedProfile],
+        });
+      }
       toast({
         title: 'Account Disconnected',
         description: `${platformName} account has been disconnected.`,
@@ -450,9 +561,11 @@ export default function ConnectionsView({
     });
   };
 
-  const selectedProfileData = profiles.find(p => p.id === selectedProfile);
+  const selectedProfileData = (profilesQuery.data || []).find(
+    p => p.id === selectedProfile
+  );
 
-  if (loading) {
+  if (profilesQuery.isLoading || (selectedProfile && accountsQuery.isLoading)) {
     return (
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
@@ -512,7 +625,7 @@ export default function ConnectionsView({
         </div>
       </div>
 
-      {profiles.length === 0 && !loading && (
+      {profilesQuery.data?.length === 0 && (
         <div className="mb-6">
           <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <div className="flex items-start gap-3">
@@ -531,7 +644,7 @@ export default function ConnectionsView({
         </div>
       )}
 
-      {profiles.length > 0 && (
+      {profilesQuery.data && profilesQuery.data.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center gap-4">
             <h2 className="text-xl font-semibold">Select Profile</h2>
@@ -542,7 +655,7 @@ export default function ConnectionsView({
               <SelectValue placeholder="Select a profile" />
             </SelectTrigger>
             <SelectContent>
-              {profiles.map(profile => (
+              {profilesQuery.data.map(profile => (
                 <SelectItem key={profile.id} value={profile.id}>
                   <div className="flex items-center gap-2">
                     <div
@@ -585,6 +698,8 @@ export default function ConnectionsView({
               const IconComponent = platformIcons[platform.icon];
               const isConnecting = connectingPlatform === platform.name;
 
+              const showCardSpinner =
+                isConnecting || completingPlatform === platform.name;
               return (
                 <Card key={platform.name} className="relative">
                   <CardHeader className="pb-3">
@@ -687,9 +802,9 @@ export default function ConnectionsView({
                             <Button
                               className="w-full bg-yellow-400 hover:bg-yellow-500 text-black"
                               onClick={() => handleConnect(platform.name)}
-                              disabled={isConnecting}
+                              disabled={showCardSpinner}
                             >
-                              {isConnecting ? (
+                              {showCardSpinner ? (
                                 <>
                                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                                   connecting...
@@ -710,7 +825,7 @@ export default function ConnectionsView({
         </div>
       )}
 
-      {profiles.length === 0 && !loading && (
+      {profilesQuery.data?.length === 0 && (
         <div className="flex items-center justify-center py-12">
           <div className="text-center space-y-4">
             <p className="text-muted-foreground">

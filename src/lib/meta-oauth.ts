@@ -8,7 +8,8 @@ import { prisma } from '@/lib/db';
 import type { Platform } from '@prisma/client';
 
 export interface MetaOAuthConfig {
-  appId: string;
+  instagramAppId: string;
+  facebookAppId: string;
   appSecret: string;
   redirectUri: string;
 }
@@ -71,7 +72,7 @@ export class MetaOAuthService {
    */
   getInstagramAuthUrl(state: string): string {
     const params = new URLSearchParams({
-      client_id: this.config.appId,
+      client_id: this.config.instagramAppId,
       redirect_uri: this.config.redirectUri,
       response_type: 'code',
       // Use business scopes as requested by Meta for Developers
@@ -94,17 +95,20 @@ export class MetaOAuthService {
    */
   getFacebookAuthUrl(state: string): string {
     const params = new URLSearchParams({
-      client_id: this.config.appId,
+      client_id: this.config.facebookAppId,
       redirect_uri: this.config.redirectUri,
       response_type: 'code',
+      // Using basic permissions + pages permissions
+      // Note: Advanced permissions may require App Review
       scope: [
+        'public_profile',
         'pages_show_list',
         'pages_read_engagement',
         'pages_manage_posts',
-        'pages_manage_metadata',
-        'public_profile',
       ].join(','),
       state,
+      // Add config_id if you have a business configuration
+      // Helps with permissions in development mode
     });
 
     return `${this.authBaseUrlFacebook}?${params.toString()}`;
@@ -115,7 +119,7 @@ export class MetaOAuthService {
    */
   async exchangeCodeForFacebookToken(code: string): Promise<MetaTokenResponse> {
     const params = new URLSearchParams({
-      client_id: this.config.appId,
+      client_id: this.config.facebookAppId,
       client_secret: this.config.appSecret,
       redirect_uri: this.config.redirectUri,
       grant_type: 'authorization_code',
@@ -153,7 +157,7 @@ export class MetaOAuthService {
     permissions: string[];
   }> {
     const params = new URLSearchParams({
-      client_id: this.config.appId,
+      client_id: this.config.instagramAppId,
       client_secret: this.config.appSecret,
       redirect_uri: this.config.redirectUri,
       grant_type: 'authorization_code',
@@ -167,12 +171,6 @@ export class MetaOAuthService {
       },
       body: params.toString(),
     });
-
-    console.log(
-      'Instagram token response status:',
-      response.status,
-      response.statusText
-    );
 
     if (!response.ok) {
       const error = await response.text();
@@ -198,7 +196,7 @@ export class MetaOAuthService {
   ): Promise<MetaTokenResponse> {
     const params = new URLSearchParams({
       grant_type: 'fb_exchange_token',
-      client_id: this.config.appId,
+      client_id: this.config.facebookAppId,
       client_secret: this.config.appSecret,
       fb_exchange_token: shortLivedToken,
     });
@@ -403,17 +401,19 @@ export class MetaOAuthService {
  * Create Meta OAuth service instance
  */
 export function createMetaOAuthService(redirectUri: string): MetaOAuthService {
-  const appId = process.env.META_APP_ID;
+  const instagramAppId = process.env.META_INSTAGRAM_APP_ID;
+  const facebookAppId = process.env.META_FACEBOOK_APP_ID;
   const appSecret = process.env.META_APP_SECRET;
 
-  if (!appId || !appSecret) {
+  if (!instagramAppId || !facebookAppId || !appSecret) {
     throw new Error(
       'Meta OAuth credentials not configured. Please set META_APP_ID and META_APP_SECRET environment variables.'
     );
   }
 
   return new MetaOAuthService({
-    appId,
+    instagramAppId,
+    facebookAppId,
     appSecret,
     redirectUri,
   });
