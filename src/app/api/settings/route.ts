@@ -3,9 +3,6 @@ import { type NextRequest, NextResponse } from 'next/server';
 export async function GET() {
   try {
     return NextResponse.json({
-      lateApiKey: process.env.LATE_API_KEY || '',
-      lateProfileId: '',
-      lateBaseUrl: 'https://getlate.dev/api',
       openaiApiKey: process.env.OPENAI_API_KEY || '',
     });
   } catch (error) {
@@ -23,7 +20,6 @@ export async function POST(request: NextRequest) {
     await request.json().catch(() => ({}));
 
     const missing: string[] = [];
-    if (!process.env.LATE_API_KEY) missing.push('Late API Key');
     if (!process.env.OPENAI_API_KEY) missing.push('OpenAI API Key');
 
     return NextResponse.json({

@@ -1,0 +1,689 @@
+/**
+ * Social Connections oRPC Router
+ * Handles Instagram, Facebook, and other social platform connections
+ */
+
+import {
+  createMetaOAuthService,
+  generateOAuthState,
+  saveConnectedAccount,
+} from '@/lib/meta-oauth';
+import { authed } from '@/orpc';
+import { ORPCError } from '@orpc/server';
+import type { Platform } from '@prisma/client';
+import { z } from 'zod';
+
+// Schemas
+const PlatformEnum = z.enum([
+  'FACEBOOK',
+  'INSTAGRAM',
+  'TWITTER',
+  'LINKEDIN',
+  'TIKTOK',
+  'YOUTUBE',
+  'THREADS',
+]);
+
+const CreateProfileSchema = z.object({
+  name: z.string().min(1, 'Profile name is required'),
+  description: z.string().optional(),
+  color: z.string().default('#ffeda0'),
+});
+
+const GetAccountsSchema = z.object({
+  profileId: z.string().min(1, 'Profile ID is required'),
+});
+
+const InitiateConnectionSchema = z.object({
+  platform: PlatformEnum,
+  profileId: z.string().min(1, 'Profile ID is required'),
+});
+
+const CompleteConnectionSchema = z.object({
+  platform: PlatformEnum,
+  profileId: z.string().min(1, 'Profile ID is required'),
+  code: z.string().min(1, 'Authorization code is required'),
+  state: z.string().min(1, 'State is required'),
+});
+
+const DisconnectAccountSchema = z.object({
+  accountId: z.string().min(1, 'Account ID is required'),
+});
+
+const UpdateProfileSchema = z.object({
+  profileId: z.string().min(1, 'Profile ID is required'),
+  name: z.string().optional(),
+  description: z.string().optional(),
+  color: z.string().optional(),
+});
+
+const DeleteProfileSchema = z.object({
+  profileId: z.string().min(1, 'Profile ID is required'),
+});
+
+// Response Schemas
+const ProfileResponseSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  color: z.string().nullable(),
+  isDefault: z.boolean(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
+const ConnectedAccountResponseSchema = z.object({
+  id: z.string(),
+  platform: PlatformEnum,
+  username: z.string(),
+  displayName: z.string().nullable(),
+  profileImageUrl: z.string().nullable(),
+  connectedAt: z.date(),
+  isActive: z.boolean(),
+});
+
+export const socialRouter = {
+  /**
+   * Create a new social profile
+   */
+  createProfile: authed
+    .route({
+      method: 'POST',
+      path: '/social/profiles/create',
+      summary: 'Create a new social profile',
+      tags: ['Social'],
+    })
+    .input(CreateProfileSchema)
+    .output(ProfileResponseSchema)
+    .handler(async ({ input, context }) => {
+      const { user, prisma } = context;
+
+      if (!prisma) {
+        throw new ORPCError('INTERNAL_SERVER_ERROR', {
+          message: 'Database not available',
+        });
+      }
+
+      // Check user's profile limit based on subscription
+      const userWithUsage = await prisma.user.findUnique({
+        where: { id: user.id },
+        include: {
+          usage: true,
+          subscription: true,
+        },
+      });
+
+      if (!userWithUsage) {
+        throw new ORPCError('NOT_FOUND', {
+          message: 'User not found',
+        });
+      }
+
+      // Get tier configuration
+      const tierConfig = await prisma.tierConfig.findUnique({
+        where: { tier: userWithUsage.subscription?.tier || 'FREE' },
+      });
+
+      if (tierConfig && userWithUsage.usage) {
+        if (userWithUsage.usage.profileCount >= tierConfig.maxProfiles) {
+          throw new ORPCError('FORBIDDEN', {
+            message: `Profile limit reached. Your plan allows ${tierConfig.maxProfiles} profiles.`,
+          });
+        }
+      }
+
+      // Check if this is the first profile
+      const profileCount = await prisma.socialProfile.count({
+        where: { userId: user.id },
+      });
+
+      const isFirst = profileCount === 0;
+
+      // Create profile
+      const profile = await prisma.socialProfile.create({
+        data: {
+          userId: user.id,
+          name: input.name,
+          description: input.description,
+          color: input.color,
+          isDefault: isFirst,
+        },
+      });
+
+      // Update usage count
+      await prisma.usage.upsert({
+        where: { userId: user.id },
+        create: {
+          userId: user.id,
+          profileCount: 1,
+        },
+        update: {
+          profileCount: {
+            increment: 1,
+          },
+        },
+      });
+
+      // Log the action
+      await prisma.usageLog.create({
+        data: {
+          userId: user.id,
+          action: 'PROFILE_CONNECTED',
+          metadata: {
+            profileId: profile.id,
+            profileName: profile.name,
+          },
+        },
+      });
+
+      return profile;
+    }),
+
+  /**
+   * Get all profiles for the current user
+   */
+  getProfiles: authed
+    .route({
+      method: 'GET',
+      path: '/social/profiles',
+      summary: 'Get all social profiles',
+      tags: ['Social'],
+    })
+    .output(z.array(ProfileResponseSchema))
+    .handler(async ({ context }) => {
+      const { user, prisma } = context;
+
+      if (!prisma) {
+        throw new ORPCError('INTERNAL_SERVER_ERROR', {
+          message: 'Database not available',
+        });
+      }
+
+      const profiles = await prisma.socialProfile.findMany({
+        where: { userId: user.id },
+        orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+      });
+
+      return profiles;
+    }),
+
+  /**
+   * Update a profile
+   */
+  updateProfile: authed
+    .route({
+      method: 'PUT',
+      path: '/social/profiles/update',
+      summary: 'Update a social profile',
+      tags: ['Social'],
+    })
+    .input(UpdateProfileSchema)
+    .output(ProfileResponseSchema)
+    .handler(async ({ input, context }) => {
+      const { user, prisma } = context;
+
+      if (!prisma) {
+        throw new ORPCError('INTERNAL_SERVER_ERROR', {
+          message: 'Database not available',
+        });
+      }
+
+      // Verify ownership
+      const profile = await prisma.socialProfile.findFirst({
+        where: {
+          id: input.profileId,
+          userId: user.id,
+        },
+      });
+
+      if (!profile) {
+        throw new ORPCError('NOT_FOUND', {
+          message: 'Profile not found',
+        });
+      }
+
+      // Update profile
+      const updated = await prisma.socialProfile.update({
+        where: { id: input.profileId },
+        data: {
+          name: input.name,
+          description: input.description,
+          color: input.color,
+        },
+      });
+
+      return updated;
+    }),
+
+  /**
+   * Delete a profile
+   */
+  deleteProfile: authed
+    .route({
+      method: 'DELETE',
+      path: '/social/profiles/delete',
+      summary: 'Delete a social profile',
+      tags: ['Social'],
+    })
+    .input(DeleteProfileSchema)
+    .output(z.object({ success: z.boolean() }))
+    .handler(async ({ input, context }) => {
+      const { user, prisma } = context;
+
+      if (!prisma) {
+        throw new ORPCError('INTERNAL_SERVER_ERROR', {
+          message: 'Database not available',
+        });
+      }
+
+      // Verify ownership
+      const profile = await prisma.socialProfile.findFirst({
+        where: {
+          id: input.profileId,
+          userId: user.id,
+        },
+      });
+
+      if (!profile) {
+        throw new ORPCError('NOT_FOUND', {
+          message: 'Profile not found',
+        });
+      }
+
+      // Delete profile (cascade will delete connected accounts)
+      await prisma.socialProfile.delete({
+        where: { id: input.profileId },
+      });
+
+      // Update usage count
+      await prisma.usage.update({
+        where: { userId: user.id },
+        data: {
+          profileCount: {
+            decrement: 1,
+          },
+        },
+      });
+
+      return { success: true };
+    }),
+
+  /**
+   * Get connected accounts for a profile
+   */
+  getConnectedAccounts: authed
+    .route({
+      method: 'GET',
+      path: '/social/accounts',
+      summary: 'Get connected accounts for a profile',
+      tags: ['Social'],
+    })
+    .input(GetAccountsSchema)
+    .output(z.array(ConnectedAccountResponseSchema))
+    .handler(async ({ input, context }) => {
+      const { user, prisma } = context;
+
+      if (!prisma) {
+        throw new ORPCError('INTERNAL_SERVER_ERROR', {
+          message: 'Database not available',
+        });
+      }
+
+      // Verify profile ownership
+      const profile = await prisma.socialProfile.findFirst({
+        where: {
+          id: input.profileId,
+          userId: user.id,
+        },
+      });
+
+      if (!profile) {
+        throw new ORPCError('NOT_FOUND', {
+          message: 'Profile not found',
+        });
+      }
+
+      const accounts = await prisma.connectedAccount.findMany({
+        where: {
+          profileId: input.profileId,
+        },
+        orderBy: { connectedAt: 'desc' },
+      });
+
+      return accounts;
+    }),
+
+  /**
+   * Initiate OAuth connection for Instagram or Facebook
+   */
+  initiateConnection: authed
+    .route({
+      method: 'POST',
+      path: '/social/connect/initiate',
+      summary: 'Initiate OAuth connection for social platform',
+      tags: ['Social'],
+    })
+    .input(InitiateConnectionSchema)
+    .output(z.object({ authUrl: z.string(), state: z.string() }))
+    .handler(async ({ input, context }) => {
+      const { user, prisma } = context;
+
+      if (!prisma) {
+        throw new ORPCError('INTERNAL_SERVER_ERROR', {
+          message: 'Database not available',
+        });
+      }
+
+      // Verify profile ownership
+      const profile = await prisma.socialProfile.findFirst({
+        where: {
+          id: input.profileId,
+          userId: user.id,
+        },
+      });
+
+      if (!profile) {
+        throw new ORPCError('NOT_FOUND', {
+          message: 'Profile not found',
+        });
+      }
+
+      const { platform } = input;
+
+      // Only support Meta platforms for now
+      if (platform !== 'INSTAGRAM' && platform !== 'FACEBOOK') {
+        throw new ORPCError('BAD_REQUEST', {
+          message: `Platform ${platform} is not supported yet. Only Instagram and Facebook are currently available.`,
+        });
+      }
+
+      // Build redirect URI
+      const baseRaw =
+        process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+      const baseUrl = baseRaw.replace(/\/+$/, '');
+      const redirectUri = `${baseUrl}/dashboard/connections`;
+
+      // Generate state for CSRF protection and encode it with metadata
+      // This encoded state will be sent to the OAuth provider and returned in the callback
+      const encodedState = Buffer.from(
+        JSON.stringify({
+          nonce: generateOAuthState(), // Random nonce for CSRF protection
+          profileId: input.profileId,
+          platform,
+          userId: user.id,
+        })
+      ).toString('base64');
+
+      // Create Meta OAuth service
+      const metaOAuth = createMetaOAuthService(redirectUri);
+
+      // Generate auth URL based on platform, using the encoded state
+      let authUrl: string;
+      if (platform === 'INSTAGRAM') {
+        authUrl = metaOAuth.getInstagramAuthUrl(encodedState);
+      } else {
+        authUrl = metaOAuth.getFacebookAuthUrl(encodedState);
+      }
+
+      return {
+        authUrl,
+        state: encodedState,
+      };
+    }),
+
+  /**
+   * Complete OAuth connection after callback
+   */
+  completeConnection: authed
+    .route({
+      method: 'POST',
+      path: '/social/connect/complete',
+      summary: 'Complete OAuth connection after callback',
+      tags: ['Social'],
+    })
+    .input(CompleteConnectionSchema)
+    .output(
+      z.object({
+        success: z.boolean(),
+        accounts: z.array(ConnectedAccountResponseSchema),
+      })
+    )
+    .handler(async ({ input, context }) => {
+      const { user, prisma } = context;
+
+      if (!prisma) {
+        throw new ORPCError('INTERNAL_SERVER_ERROR', {
+          message: 'Database not available',
+        });
+      }
+
+      const { code, state, platform, profileId } = input;
+
+      // Verify state
+      let stateData: {
+        nonce: string;
+        profileId: string;
+        platform: string;
+        userId: string;
+      };
+
+      try {
+        stateData = JSON.parse(Buffer.from(state, 'base64').toString());
+      } catch {
+        throw new ORPCError('BAD_REQUEST', {
+          message: 'Invalid state parameter',
+        });
+      }
+
+      // Verify state matches
+      if (
+        stateData.profileId !== profileId ||
+        stateData.platform !== platform ||
+        stateData.userId !== user.id
+      ) {
+        throw new ORPCError('BAD_REQUEST', {
+          message: 'State verification failed',
+        });
+      }
+
+      // Verify nonce exists (CSRF protection)
+      if (!stateData.nonce) {
+        throw new ORPCError('BAD_REQUEST', {
+          message: 'Invalid state: missing nonce',
+        });
+      }
+
+      // Verify profile ownership
+      const profile = await prisma.socialProfile.findFirst({
+        where: {
+          id: profileId,
+          userId: user.id,
+        },
+      });
+
+      if (!profile) {
+        throw new ORPCError('NOT_FOUND', {
+          message: 'Profile not found',
+        });
+      }
+
+      const baseRaw =
+        process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+      const baseUrl = baseRaw.replace(/\/+$/, '');
+      const redirectUri = `${baseUrl}/dashboard/connections`;
+      const metaOAuth = createMetaOAuthService(redirectUri);
+
+      if (platform === 'INSTAGRAM') {
+        // Instagram Business Login flow
+        const tokenResponse =
+          await metaOAuth.exchangeCodeForInstagramToken(code);
+        console.log('Instagram tokenResponse', tokenResponse);
+
+        const shortLivedToken = tokenResponse.access_token;
+        const userId = String(tokenResponse.user_id);
+
+        // Get long-lived Instagram token
+        const longLivedToken =
+          await metaOAuth.getInstagramLongLivedToken(shortLivedToken);
+
+        // Fetch Instagram account details
+        const accountDetails = await metaOAuth.getInstagramAccountDetails(
+          longLivedToken.access_token
+        );
+
+        console.log('Instagram accountDetails', accountDetails);
+
+        // Save Instagram account with actual details
+        const account = await saveConnectedAccount({
+          profileId,
+          platform: 'INSTAGRAM' as Platform,
+          platformUserId: accountDetails.user_id,
+          username: accountDetails.username,
+          displayName: accountDetails.name || accountDetails.username,
+          profileImageUrl: accountDetails.profile_picture_url,
+          accessToken: longLivedToken.access_token,
+          tokenExpiresAt: longLivedToken.expires_in
+            ? new Date(Date.now() + longLivedToken.expires_in * 1000)
+            : undefined,
+          platformData: {
+            permissions: tokenResponse.permissions,
+            account_type: accountDetails.account_type,
+          },
+        });
+
+        return {
+          success: true,
+          accounts: [account],
+        };
+      } else {
+        // Facebook flow
+        const tokenResponse =
+          await metaOAuth.exchangeCodeForFacebookToken(code);
+        console.log('Facebook tokenResponse', tokenResponse);
+
+        // Get long-lived Facebook token
+        const longLivedToken = await metaOAuth.getFacebookLongLivedToken(
+          tokenResponse.access_token
+        );
+
+        const expiresAt = longLivedToken.expires_in
+          ? new Date(Date.now() + longLivedToken.expires_in * 1000)
+          : undefined;
+
+        const savedAccounts = [];
+
+        // Get user's Facebook pages
+        const pages = await metaOAuth.getUserPages(longLivedToken.access_token);
+        console.log('Facebook pages found:', pages.length, pages);
+
+        for (const page of pages) {
+          // Save each page as a connected account
+          const account = await saveConnectedAccount({
+            profileId,
+            platform: 'FACEBOOK' as Platform,
+            platformUserId: page.id,
+            username: page.name,
+            displayName: page.name,
+            profileImageUrl: page.picture?.data?.url,
+            accessToken: page.access_token, // Use page token, not user token
+            tokenExpiresAt: undefined, // Page tokens don't expire
+            platformData: {
+              category: page.category,
+            },
+          });
+
+          savedAccounts.push(account);
+        }
+
+        return {
+          success: true,
+          accounts: savedAccounts,
+        };
+      }
+
+      // This should never be reached
+      throw new ORPCError('BAD_REQUEST', {
+        message: 'Unsupported platform',
+      });
+    }),
+
+  /**
+   * Disconnect a social account
+   */
+  disconnectAccount: authed
+    .route({
+      method: 'POST',
+      path: '/social/disconnect',
+      summary: 'Disconnect a social account',
+      tags: ['Social'],
+    })
+    .input(DisconnectAccountSchema)
+    .output(z.object({ success: z.boolean() }))
+    .handler(async ({ input, context }) => {
+      const { session, prisma } = context;
+
+      if (!prisma) {
+        throw new ORPCError('INTERNAL_SERVER_ERROR', {
+          message: 'Database not available',
+        });
+      }
+
+      // Find account and verify ownership
+      const account = await prisma.connectedAccount.findFirst({
+        where: {
+          id: input.accountId,
+        },
+        include: {
+          profile: true,
+        },
+      });
+
+      if (!account) {
+        throw new ORPCError('NOT_FOUND', {
+          message: 'Account not found',
+        });
+      }
+
+      if (account.profile.userId !== session.user?.id) {
+        throw new ORPCError('FORBIDDEN', {
+          message: 'You do not have permission to disconnect this account',
+        });
+      }
+
+      if (
+        account.accessToken &&
+        (account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK')
+      ) {
+        try {
+          const baseUrl =
+            process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+          const redirectUri = `${baseUrl}/dashboard/connections/callback`;
+          const metaOAuth = createMetaOAuthService(redirectUri);
+          await metaOAuth.revokeToken(account.accessToken);
+        } catch (error) {
+          console.error('Error revoking Meta token:', error);
+          // Continue with deletion even if revocation fails
+        }
+      }
+
+      // Delete account
+      await prisma.connectedAccount.delete({
+        where: { id: input.accountId },
+      });
+
+      // Log the disconnection
+      await prisma.usageLog.create({
+        data: {
+          userId: session.user?.id,
+          action: 'PROFILE_DISCONNECTED',
+          metadata: {
+            platform: account.platform,
+            accountId: account.id,
+            username: account.username,
+          },
+        },
+      });
+
+      return { success: true };
+    }),
+};
