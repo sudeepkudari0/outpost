@@ -124,7 +124,7 @@ async function getInitialData() {
     return { profiles, selectedProfile, platforms };
   } catch (err) {
     // Gracefully handle unauthenticated or other server errors
-    console.log('error', err);
+    console.error('error', err);
     return {
       profiles: [],
       selectedProfile: '',

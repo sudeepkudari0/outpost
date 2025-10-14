@@ -78,10 +78,7 @@ export class MetaOAuthService {
       // Use business scopes as requested by Meta for Developers
       scope: [
         'instagram_business_basic',
-        'instagram_business_manage_messages',
-        'instagram_business_manage_comments',
         'instagram_business_content_publish',
-        'instagram_business_manage_insights',
       ].join(' '),
       state,
       force_reauth: 'true',
@@ -134,12 +131,6 @@ export class MetaOAuthService {
       body: params.toString(),
     });
 
-    console.log(
-      'Facebook token response status:',
-      response.status,
-      response.statusText
-    );
-
     if (!response.ok) {
       const error = await response.text();
       throw new Error(`Failed to exchange code for Facebook token: ${error}`);
@@ -163,6 +154,7 @@ export class MetaOAuthService {
       grant_type: 'authorization_code',
       code,
     });
+    console.log('exchangeCodeForInstagramToken: params', params.toString());
 
     const response = await fetch(this.instagramTokenUrl, {
       method: 'POST',
@@ -173,11 +165,27 @@ export class MetaOAuthService {
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Failed to exchange code for Instagram token: ${error}`);
+      const errorText = await response.text();
+      console.error('[Meta OAuth] Instagram token error response:', errorText);
+
+      // Try to parse as JSON for better error message
+      try {
+        const errorJson = JSON.parse(errorText);
+        console.error(
+          '[Meta OAuth] Parsed error:',
+          JSON.stringify(errorJson, null, 2)
+        );
+      } catch (e) {
+        console.error('[Meta OAuth] Raw error (not JSON):', errorText);
+      }
+
+      throw new Error(
+        `Failed to exchange code for Instagram token: ${errorText}`
+      );
     }
 
-    return response.json();
+    const data = await response.json();
+    return data;
   }
 
   /**

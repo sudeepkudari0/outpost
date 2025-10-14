@@ -400,8 +400,7 @@ export const socialRouter = {
       // Build redirect URI
       const baseRaw =
         process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-      const baseUrl = baseRaw.replace(/\/+$/, '');
-      const redirectUri = `${baseUrl}/dashboard/connections`;
+      const redirectUri = `${baseRaw}/dashboard/connections`;
 
       // Generate state for CSRF protection and encode it with metadata
       // This encoded state will be sent to the OAuth provider and returned in the callback
@@ -415,12 +414,15 @@ export const socialRouter = {
       ).toString('base64');
 
       // Create Meta OAuth service
+
+      console.log('InitiateConnection: redirectUri', redirectUri);
       const metaOAuth = createMetaOAuthService(redirectUri);
 
       // Generate auth URL based on platform, using the encoded state
       let authUrl: string;
       if (platform === 'INSTAGRAM') {
         authUrl = metaOAuth.getInstagramAuthUrl(encodedState);
+        console.log('InitiateConnection: Instagram auth URL', authUrl);
       } else {
         authUrl = metaOAuth.getFacebookAuthUrl(encodedState);
       }
@@ -509,18 +511,17 @@ export const socialRouter = {
 
       const baseRaw =
         process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-      const baseUrl = baseRaw.replace(/\/+$/, '');
-      const redirectUri = `${baseUrl}/dashboard/connections`;
+      const redirectUri = `${baseRaw}/dashboard/connections/`;
       const metaOAuth = createMetaOAuthService(redirectUri);
+
+      console.log('CompleteConnection: redirectUri', redirectUri);
 
       if (platform === 'INSTAGRAM') {
         // Instagram Business Login flow
         const tokenResponse =
           await metaOAuth.exchangeCodeForInstagramToken(code);
-        console.log('Instagram tokenResponse', tokenResponse);
 
         const shortLivedToken = tokenResponse.access_token;
-        const userId = String(tokenResponse.user_id);
 
         // Get long-lived Instagram token
         const longLivedToken =
@@ -530,8 +531,6 @@ export const socialRouter = {
         const accountDetails = await metaOAuth.getInstagramAccountDetails(
           longLivedToken.access_token
         );
-
-        console.log('Instagram accountDetails', accountDetails);
 
         // Save Instagram account with actual details
         const account = await saveConnectedAccount({
@@ -559,7 +558,6 @@ export const socialRouter = {
         // Facebook flow
         const tokenResponse =
           await metaOAuth.exchangeCodeForFacebookToken(code);
-        console.log('Facebook tokenResponse', tokenResponse);
 
         // Get long-lived Facebook token
         const longLivedToken = await metaOAuth.getFacebookLongLivedToken(
@@ -574,7 +572,6 @@ export const socialRouter = {
 
         // Get user's Facebook pages
         const pages = await metaOAuth.getUserPages(longLivedToken.access_token);
-        console.log('Facebook pages found:', pages.length, pages);
 
         for (const page of pages) {
           // Save each page as a connected account
@@ -655,13 +652,13 @@ export const socialRouter = {
         (account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK')
       ) {
         try {
-          const baseUrl =
+          const baseRaw =
             process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-          const redirectUri = `${baseUrl}/dashboard/connections/callback`;
+          const redirectUri = `${baseRaw}/dashboard/connections`;
           const metaOAuth = createMetaOAuthService(redirectUri);
           await metaOAuth.revokeToken(account.accessToken);
         } catch (error) {
-          console.error('Error revoking Meta token:', error);
+          console.error('[Meta OAuth] Error revoking token:', error);
           // Continue with deletion even if revocation fails
         }
       }
