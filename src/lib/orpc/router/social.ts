@@ -415,14 +415,12 @@ export const socialRouter = {
 
       // Create Meta OAuth service
 
-      console.log('InitiateConnection: redirectUri', redirectUri);
       const metaOAuth = createMetaOAuthService(redirectUri);
 
       // Generate auth URL based on platform, using the encoded state
       let authUrl: string;
       if (platform === 'INSTAGRAM') {
         authUrl = metaOAuth.getInstagramAuthUrl(encodedState);
-        console.log('InitiateConnection: Instagram auth URL', authUrl);
       } else {
         authUrl = metaOAuth.getFacebookAuthUrl(encodedState);
       }
@@ -511,10 +509,8 @@ export const socialRouter = {
 
       const baseRaw =
         process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-      const redirectUri = `${baseRaw}/dashboard/connections/`;
+      const redirectUri = `${baseRaw}/dashboard/connections`;
       const metaOAuth = createMetaOAuthService(redirectUri);
-
-      console.log('CompleteConnection: redirectUri', redirectUri);
 
       if (platform === 'INSTAGRAM') {
         // Instagram Business Login flow

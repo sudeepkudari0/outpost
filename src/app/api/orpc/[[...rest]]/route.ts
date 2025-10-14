@@ -51,7 +51,7 @@ const rpcHandler = new RPCHandler(router, {
 
 async function handleRequest(request: Request) {
   const cookieName =
-    process.env.NODE_ENV === 'production'
+    process.env.NODE_ENV !== 'production'
       ? '__Secure-authjs.session-token'
       : 'authjs.session-token';
   const token = await getToken({
