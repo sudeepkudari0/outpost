@@ -1,10 +1,11 @@
-import type React from 'react';
-import type { Metadata } from 'next';
-import { GeistSans } from 'geist/font/sans';
-import { GeistMono } from 'geist/font/mono';
-import './globals.css';
+import { SessionProvider } from '@/components/session-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { siteConfig } from '@/constant/config';
+import { GeistMono } from 'geist/font/mono';
+import { GeistSans } from 'geist/font/sans';
+import type { Metadata } from 'next';
+import type React from 'react';
+import './globals.css';
 
 export const metadata: Metadata = {
   title: siteConfig.title,
@@ -63,8 +64,10 @@ html {
         `}</style>
       </head>
       <body>
-        {children}
-        <Toaster />
+        <SessionProvider>
+          {children}
+          <Toaster />
+        </SessionProvider>
       </body>
     </html>
   );

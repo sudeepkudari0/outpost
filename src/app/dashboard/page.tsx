@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -5,10 +6,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { FileText, Users, BarChart3, Calendar, Clock } from 'lucide-react';
+import { BarChart3, Calendar, Clock, FileText, Users } from 'lucide-react';
 import NextLink from 'next/link';
-import { cookies } from 'next/headers';
 
 function formatDateTime(dateStr?: string | null): string {
   if (!dateStr) return '—';
@@ -20,31 +19,11 @@ function formatDateTime(dateStr?: string | null): string {
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
 
 export default async function DashboardPage() {
-  const cookieStore = await cookies();
-  const profileId = cookieStore.get('profile_id')?.value;
   const postsQuery = new URLSearchParams({ limit: '100' });
-  if (profileId) postsQuery.set('profileId', profileId);
-  const accountsQuery = new URLSearchParams();
-  if (profileId) accountsQuery.set('profileId', profileId);
 
-  const [postsRes, accountsRes] = await Promise.all([
-    fetch(`${baseUrl}/api/posts?${postsQuery.toString()}`, {
-      cache: 'no-store',
-    }),
-    fetch(`${baseUrl}/api/late/accounts?${accountsQuery.toString()}`, {
-      cache: 'no-store',
-    }),
-  ]);
-
-  const postsJson = postsRes.ok ? await postsRes.json() : { posts: [] };
-  const accountsJson = accountsRes.ok
-    ? await accountsRes.json()
-    : { accounts: [] };
-
-  const posts: any[] = Array.isArray(postsJson.posts) ? postsJson.posts : [];
-  const accounts: any[] = Array.isArray(accountsJson.accounts)
-    ? accountsJson.accounts
-    : [];
+  // TODO: Replace with Meta API calls
+  const posts: any[] = [];
+  const accounts: any[] = [];
 
   const totalPosts = posts.length;
   const scheduledPosts = posts.filter(p => p.status === 'scheduled');
@@ -98,7 +77,7 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalPosts}</div>
-            <p className="text-xs text-muted-foreground">from Late</p>
+            <p className="text-xs text-muted-foreground">from Meta</p>
           </CardContent>
         </Card>
 

@@ -148,10 +148,6 @@ export async function getOrCreateSubscription(userId: string) {
           currentPeriodEnd: periodEnd,
         },
       });
-
-      console.log(
-        `[Subscription] Created FREE tier subscription for user ${userId}`
-      );
     }
 
     return subscription;
@@ -242,7 +238,6 @@ export async function updateSubscriptionTier(
       },
     });
 
-    console.log(`[Subscription] Updated tier to ${newTier} for user ${userId}`);
     return subscription;
   } catch (error) {
     console.error('[Subscription] Error updating subscription tier:', error);
@@ -264,7 +259,6 @@ export async function cancelSubscription(userId: string, cancelAt?: Date) {
       },
     });
 
-    console.log(`[Subscription] Canceled subscription for user ${userId}`);
     return subscription;
   } catch (error) {
     console.error('[Subscription] Error canceling subscription:', error);
@@ -286,7 +280,6 @@ export async function reactivateSubscription(userId: string) {
       },
     });
 
-    console.log(`[Subscription] Reactivated subscription for user ${userId}`);
     return subscription;
   } catch (error) {
     console.error('[Subscription] Error reactivating subscription:', error);
@@ -402,7 +395,6 @@ export async function initializeUserSubscription(userId: string) {
       },
     });
 
-    console.log(`[Subscription] Initialized subscription for user ${userId}`);
     return subscription;
   } catch (error) {
     console.error('[Subscription] Error initializing subscription:', error);

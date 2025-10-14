@@ -36,23 +36,12 @@ An AI-powered social media management application that generates platform-specif
 Create a `.env.local` file in the root directory:
 
 \`\`\`env
-# Late API Configuration
-LATE_API_KEY=your_late_api_key
-NEXT_PUBLIC_LATE_BASE=https://getlate.dev/api
-NEXT_PUBLIC_LATE_PROFILE_ID=your_late_profile_id
-
 # OpenAI Configuration
 OPENAI_API_KEY=your_openai_api_key
 \`\`\`
 
-### 2. Getting Your Late Profile ID
 
-1. Log into your Late dashboard
-2. Go to the Connections page
-3. Find your profile ID displayed at the top (e.g., `689f779e106fef0e5df63826`)
-4. Copy this ID to your `NEXT_PUBLIC_LATE_PROFILE_ID` environment variable
-
-### 3. Installation
+### 2. Installation
 
 \`\`\`bash
 # Install dependencies
@@ -66,7 +55,7 @@ npm run dev
 pnpm dev
 \`\`\`
 
-### 4. Connect Social Media Accounts
+### 3. Connect Social Media Accounts
 
 1. Navigate to `/dashboard/create-post`
 2. Use the "Connect" buttons to link your social media accounts through Late's OAuth flow
@@ -125,23 +114,12 @@ An AI-powered social media management application that generates platform-specif
 Create a `.env.local` file in the root directory:
 
 \`\`\`env
-# Late API Configuration
-LATE_API_KEY=your_late_api_key
-NEXT_PUBLIC_LATE_BASE=https://getlate.dev/api
-NEXT_PUBLIC_LATE_PROFILE_ID=your_late_profile_id
-
 # OpenAI Configuration
 OPENAI_API_KEY=your_openai_api_key
 \`\`\`
 
-### 2. Getting Your Late Profile ID
 
-1. Log into your Late dashboard
-2. Go to the Connections page
-3. Find your profile ID displayed at the top (e.g., `689f779e106fef0e5df63826`)
-4. Copy this ID to your `NEXT_PUBLIC_LATE_PROFILE_ID` environment variable
-
-### 3. Installation
+### 2. Installation
 
 \`\`\`bash
 # Install dependencies
@@ -155,7 +133,7 @@ npm run dev
 pnpm dev
 \`\`\`
 
-### 4. Connect Social Media Accounts
+### 3. Connect Social Media Accounts
 
 1. Navigate to `/dashboard/create-post`
 2. Use the "Connect" buttons to link your social media accounts through Late's OAuth flow
@@ -283,6 +261,5 @@ This project is licensed under the MIT License.
 ## Support
 
 For issues related to:
-- **Late API**: Check [Late's documentation](https://getlate.dev/docs)
 - **OpenAI**: Check [OpenAI's documentation](https://platform.openai.com/docs)
 - **This application**: Open an issue in the repository

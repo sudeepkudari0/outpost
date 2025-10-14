@@ -121,9 +121,6 @@ model SocialProfile {
   color       String? @default("#ffeda0")
   isDefault   Boolean @default(false)
 
-  // Connection to getlate.dev (for now, keep compatibility)
-  lateProfileId String? // External Late.dev profile ID
-
   // Connected accounts
   connectedAccounts ConnectedAccount[]
   posts             Post[]
@@ -149,9 +146,6 @@ model ConnectedAccount {
   accessToken    String?   @db.String
   refreshToken   String?   @db.String
   tokenExpiresAt DateTime?
-
-  // getlate.dev compatibility
-  lateAccountId String? // External Late.dev account ID
 
   // Metadata
   platformData Json? // Store platform-specific data
@@ -196,10 +190,6 @@ model Post {
   // Publishing tracking
   publishedAt DateTime?
   platforms   PostPlatform[]
-
-  // getlate.dev compatibility
-  latePostId  String? // External Late.dev post ID
-  lateDraftId String? // External Late.dev draft ID
 
   // Metadata
   tags        String[]
@@ -250,6 +240,7 @@ enum PublishOption {
 enum PublishStatus {
   PENDING
   PUBLISHING
+  SCHEDULED
   PUBLISHED
   FAILED
 }

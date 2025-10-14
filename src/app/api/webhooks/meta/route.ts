@@ -24,7 +24,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     // Handle webhook notification here
-    console.log('Webhook notification received:', body);
 
     return NextResponse.json({ status: 'OK' });
   } catch (error) {

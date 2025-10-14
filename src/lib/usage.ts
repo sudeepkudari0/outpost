@@ -21,8 +21,6 @@ export async function getOrCreateUsage(userId: string) {
           lastMonthReset: new Date(),
         },
       });
-
-      console.log(`[Usage] Created usage record for user ${userId}`);
     }
 
     return usage;
