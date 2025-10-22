@@ -3,14 +3,18 @@
  * Routes publishing requests to the appropriate platform publisher
  */
 
-import { FacebookPublisher } from './facebook-publisher';
-import { InstagramPublisher } from './instagram-publisher';
+import { LinkedInPublisher } from './linkedin-publisher';
+import { FacebookPublisher } from './meta/facebook-publisher';
+import { InstagramPublisher } from './meta/instagram-publisher';
+import { TwitterPublisher } from './twitter-publisher';
 import { BaseSocialPublisher } from './types';
 
 // Registry of all available publishers
 const publishers: BaseSocialPublisher[] = [
   new InstagramPublisher(),
   new FacebookPublisher(),
+  new LinkedInPublisher(),
+  new TwitterPublisher(),
 ];
 
 /**

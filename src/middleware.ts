@@ -15,16 +15,15 @@ export default auth(async req => {
 
   const isApiAuthRoute = nextUrl.pathname.startsWith('/api/auth');
   const isRootRoute = nextUrl.pathname === '/';
-  const isPublicRoute = isAuthRoute || isApiAuthRoute;
+  const isPublicRoute =
+    isAuthRoute ||
+    isApiAuthRoute ||
+    isRootRoute ||
+    nextUrl.pathname.startsWith('/privacy-policy') ||
+    nextUrl.pathname.startsWith('/terms-of-use') ||
+    nextUrl.pathname.startsWith('/data-deletion-policy');
 
-  // Handle root route
-  if (isRootRoute) {
-    if (isLoggedIn) {
-      return NextResponse.redirect(new URL('/dashboard', nextUrl));
-    } else {
-      return NextResponse.redirect(new URL('/login', nextUrl));
-    }
-  }
+  // Root and public informational pages are accessible regardless of auth state
 
   // Allow API auth routes and auth pages
   if (isApiAuthRoute || isAuthRoute) {

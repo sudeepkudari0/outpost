@@ -407,6 +407,42 @@ export const postsRouter = {
                 continue;
               }
 
+              // Preflight: ensure Twitter token has tweet.write scope
+              if (account.platform === 'TWITTER') {
+                const scope: string | undefined = (account as any)?.platformData
+                  ?.scope;
+
+                // Debug logging
+                console.log('=== TWITTER SCOPE DEBUG ===');
+                console.log('Account ID:', account.id);
+                console.log(
+                  'Platform Data:',
+                  JSON.stringify(account.platformData, null, 2)
+                );
+                console.log('Scope:', scope);
+                console.log(
+                  'Has tweet.write:',
+                  scope?.split(/\s+/).includes('tweet.write')
+                );
+                console.log('========================');
+
+                const hasWrite =
+                  !!scope && scope.split(/\s+/).includes('tweet.write');
+                if (!hasWrite) {
+                  const errorMsg =
+                    'Twitter account is missing tweet.write scope. Please disconnect and reconnect Twitter to grant write permissions.';
+                  publishErrors.push(errorMsg);
+                  await tx.postPlatform.update({
+                    where: { id: postPlatform.id },
+                    data: {
+                      status: 'FAILED',
+                      errorMessage: errorMsg,
+                    },
+                  });
+                  continue;
+                }
+              }
+
               // For scheduled posts on platforms WITHOUT native scheduling,
               // skip publishing and let the cron job handle it later
               if (

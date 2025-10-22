@@ -149,16 +149,14 @@ export default function ConnectionsView({
       icon: 'LinkedIn' as const,
       connected: false,
       accounts: [],
-      supported: false,
+      supported: true,
     },
     {
       name: 'Twitter',
       icon: 'Twitter' as const,
       connected: false,
       accounts: [],
-      requiresBYOK: true,
-      byokSetup: false,
-      supported: false,
+      supported: true,
     },
     {
       name: 'Threads',

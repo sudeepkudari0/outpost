@@ -4,10 +4,20 @@
  */
 
 import {
+  createLinkedInOAuthService,
+  saveLinkedInAccount,
+} from '@/lib/linkedin-oauth';
+import {
   createMetaOAuthService,
   generateOAuthState,
   saveConnectedAccount,
 } from '@/lib/meta-oauth';
+import {
+  createTwitterOAuthService,
+  generatePkceChallenge,
+  generatePkceVerifier,
+  saveTwitterAccount,
+} from '@/lib/twitter-oauth';
 import { authed } from '@/orpc';
 import { ORPCError } from '@orpc/server';
 import type { Platform } from '@prisma/client';
@@ -390,13 +400,6 @@ export const socialRouter = {
 
       const { platform } = input;
 
-      // Only support Meta platforms for now
-      if (platform !== 'INSTAGRAM' && platform !== 'FACEBOOK') {
-        throw new ORPCError('BAD_REQUEST', {
-          message: `Platform ${platform} is not supported yet. Only Instagram and Facebook are currently available.`,
-        });
-      }
-
       // Build redirect URI
       const baseRaw =
         process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
@@ -413,22 +416,44 @@ export const socialRouter = {
         })
       ).toString('base64');
 
-      // Create Meta OAuth service
-
-      const metaOAuth = createMetaOAuthService(redirectUri);
-
-      // Generate auth URL based on platform, using the encoded state
-      let authUrl: string;
-      if (platform === 'INSTAGRAM') {
-        authUrl = metaOAuth.getInstagramAuthUrl(encodedState);
-      } else {
-        authUrl = metaOAuth.getFacebookAuthUrl(encodedState);
+      if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
+        const metaOAuth = createMetaOAuthService(redirectUri);
+        const authUrl =
+          platform === 'INSTAGRAM'
+            ? metaOAuth.getInstagramAuthUrl(encodedState)
+            : metaOAuth.getFacebookAuthUrl(encodedState);
+        return { authUrl, state: encodedState };
       }
 
-      return {
-        authUrl,
-        state: encodedState,
-      };
+      if (platform === 'LINKEDIN') {
+        const li = createLinkedInOAuthService(redirectUri);
+        const authUrl = li.getAuthUrl(encodedState);
+        return { authUrl, state: encodedState };
+      }
+
+      if (platform === 'TWITTER') {
+        const tw = createTwitterOAuthService(redirectUri);
+        const codeVerifier = generatePkceVerifier();
+        const codeChallenge = generatePkceChallenge(codeVerifier);
+
+        // Embed codeVerifier in state (stateless approach)
+        const stateWithPkce = Buffer.from(
+          JSON.stringify({
+            nonce: generateOAuthState(),
+            profileId: input.profileId,
+            platform,
+            userId: user.id,
+            codeVerifier,
+          })
+        ).toString('base64');
+
+        const authUrl = tw.getAuthUrl(stateWithPkce, codeChallenge);
+        return { authUrl, state: stateWithPkce };
+      }
+
+      throw new ORPCError('BAD_REQUEST', {
+        message: `Platform ${platform} is not supported yet.`,
+      });
     }),
 
   /**
@@ -510,9 +535,9 @@ export const socialRouter = {
       const baseRaw =
         process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
       const redirectUri = `${baseRaw}/dashboard/connections`;
-      const metaOAuth = createMetaOAuthService(redirectUri);
 
       if (platform === 'INSTAGRAM') {
+        const metaOAuth = createMetaOAuthService(redirectUri);
         // Instagram Business Login flow
         const tokenResponse =
           await metaOAuth.exchangeCodeForInstagramToken(code);
@@ -550,7 +575,8 @@ export const socialRouter = {
           success: true,
           accounts: [account],
         };
-      } else {
+      } else if (platform === 'FACEBOOK') {
+        const metaOAuth = createMetaOAuthService(redirectUri);
         // Facebook flow
         const tokenResponse =
           await metaOAuth.exchangeCodeForFacebookToken(code);
@@ -592,6 +618,96 @@ export const socialRouter = {
           success: true,
           accounts: savedAccounts,
         };
+      } else if (platform === 'LINKEDIN') {
+        const li = createLinkedInOAuthService(redirectUri);
+        const token = await li.exchangeCodeForToken(code);
+
+        const accessToken = token.access_token;
+        const expiresAt = token.expires_in
+          ? new Date(Date.now() + token.expires_in * 1000)
+          : undefined;
+
+        // Fetch member profile
+        const me = await li.getMemberProfile(accessToken);
+        const memberUrn = `urn:li:person:${me.id}`;
+        const displayName = [me.localizedFirstName, me.localizedLastName]
+          .filter(Boolean)
+          .join(' ');
+
+        const saved: any[] = [];
+
+        // Save member as an account (personal posting)
+        const memberAccount = await saveLinkedInAccount({
+          profileId,
+          platform: 'LINKEDIN' as Platform,
+          platformUserId: memberUrn,
+          username: displayName || me.id,
+          displayName: displayName || me.id,
+          profileImageUrl: undefined,
+          accessToken,
+          refreshToken: token.refresh_token,
+          tokenExpiresAt: expiresAt,
+          platformData: { type: 'PERSON' },
+        });
+        saved.push(memberAccount);
+
+        // Also save admin organizations (company pages) if any
+        try {
+          const orgs = await li.getAdminOrganizations(accessToken);
+          for (const org of orgs) {
+            const orgUrn = `urn:li:organization:${org.id}`;
+            const orgAccount = await saveLinkedInAccount({
+              profileId,
+              platform: 'LINKEDIN' as Platform,
+              platformUserId: orgUrn,
+              username: org.localizedName || org.vanityName || String(org.id),
+              displayName:
+                org.localizedName || org.vanityName || String(org.id),
+              profileImageUrl: undefined,
+              accessToken,
+              refreshToken: token.refresh_token,
+              tokenExpiresAt: expiresAt,
+              platformData: { type: 'ORGANIZATION' },
+            });
+            saved.push(orgAccount);
+          }
+        } catch {}
+
+        return { success: true, accounts: saved };
+      } else if (platform === 'TWITTER') {
+        const tw = createTwitterOAuthService(redirectUri);
+
+        const codeVerifier = (stateData as any).codeVerifier as
+          | string
+          | undefined;
+        if (!codeVerifier) {
+          throw new ORPCError('BAD_REQUEST', {
+            message: 'Missing PKCE verifier in state',
+          });
+        }
+
+        const token = await tw.exchangeCodeForToken({ code, codeVerifier });
+        const accessToken = token.access_token;
+        const expiresAt = token.expires_in
+          ? new Date(Date.now() + token.expires_in * 1000)
+          : undefined;
+
+        const me = await tw.getUserMe(accessToken);
+
+        const account = await saveTwitterAccount({
+          profileId,
+          platform: 'TWITTER' as Platform,
+          platformUserId: me.id,
+          username: me.username,
+          displayName: me.name,
+          profileImageUrl: me.profile_image_url,
+          accessToken,
+          refreshToken: token.refresh_token,
+          tokenExpiresAt: expiresAt,
+          platformData: { token_type: token.token_type, scope: token.scope },
+        });
+
+        return { success: true, accounts: [account] };
       }
 
       // This should never be reached

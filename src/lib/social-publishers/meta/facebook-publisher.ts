@@ -7,7 +7,7 @@ import {
   BaseSocialPublisher,
   type PublishRequest,
   type PublishResult,
-} from './types';
+} from '../types';
 
 const GRAPH_API_VERSION = 'v21.0';
 const GRAPH_API_BASE = 'https://graph.facebook.com';
