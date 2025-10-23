@@ -1,7 +1,9 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { ArrowRight, Play } from 'lucide-react';
+import Link from 'next/link';
 
 export function HeroSection() {
   return (
@@ -40,12 +42,15 @@ export function HeroSection() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-          <Button
-            size="lg"
-            className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-8"
+          <Link
+            href="/login"
+            className={cn(
+              buttonVariants({ size: 'lg', variant: 'default' }),
+              'bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-8'
+            )}
           >
             Start Free <ArrowRight className="ml-2 w-4 h-4" />
-          </Button>
+          </Link>
           <Button
             size="lg"
             variant="outline"
