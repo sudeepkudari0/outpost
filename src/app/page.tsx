@@ -7,12 +7,12 @@ import { HowItWorksSection } from '@/components/landing-page/how-it-works-sectio
 import { PricingSection } from '@/components/landing-page/pricing-section';
 import { TestimonialsSection } from '@/components/landing-page/testimonials-section';
 import { Footer } from '@/components/layout/footer';
-import { Header } from '@/components/layout/header';
+import { LandingPageHeader } from '@/components/layout/header';
 
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-background">
-      <Header />
+      <LandingPageHeader />
       <HeroSection />
       <FeaturesSection />
       <HowItWorksSection />
