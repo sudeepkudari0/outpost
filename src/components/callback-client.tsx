@@ -52,7 +52,7 @@ export const CallbackClient = ({
         setMessage(`Connecting ${stateData.platform.toLowerCase()}...`);
 
         // Complete the OAuth flow via oRPC
-        const result = await client.social.completeConnection({
+        const result = await client.social['complete-connection']({
           platform: stateData.platform as any,
           profileId: stateData.profileId,
           code,
