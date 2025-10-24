@@ -556,6 +556,21 @@ export const postsRouter = {
                     errorMessage: errorMsg,
                   },
                 });
+                try {
+                  await tx.usageLog.create({
+                    data: {
+                      userId: user.id,
+                      action: 'POST_PUBLISHED',
+                      metadata: {
+                        postId: created.id,
+                        platform: account.platform,
+                        error: errorMsg,
+                        kind: 'PUBLISH_ERROR',
+                      },
+                      timestamp: new Date(),
+                    },
+                  });
+                } catch {}
               }
             }
 

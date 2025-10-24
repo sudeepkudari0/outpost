@@ -1,6 +1,7 @@
 'use client';
 
 import { ThemeToggle } from '@/components/theme-toggle';
+import { User } from 'next-auth';
 import Image from 'next/image';
 import Link from 'next/link';
 import { UserNav } from '../user-nav';
@@ -29,18 +30,32 @@ export function LandingPageHeader() {
   );
 }
 
-export function DashboardHeader({ title }: { title: string }) {
+export function DashboardHeader({
+  title,
+  user,
+}: {
+  title: string;
+  user: User;
+}) {
   return (
-    <header className="sticky top-0 z-20 p-4 pl-0">
-      <div className="flex items-center justify-between gap-2 rounded-2xl border bg-background/60 px-6 py-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/60 h-[60px]">
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold">{title}</h1>
+    <>
+      {/* Mobile header - only UserNav on top left */}
+      <header className="absolute top-0 right-2 z-30 p-2 md:hidden">
+        <UserNav user={user} />
+      </header>
+
+      {/* Desktop header */}
+      <header className="sticky top-0 z-20 p-4 pl-0 hidden md:block">
+        <div className="flex items-center justify-between gap-2 rounded-2xl border bg-background/60 px-6 py-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/60 h-[60px]">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold">{title}</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <UserNav user={user} />
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <UserNav />
-        </div>
-      </div>
-    </header>
+      </header>
+    </>
   );
 }

@@ -1,40 +1,23 @@
 import CreatePostView from '@/components/posts/create/create-post-view';
 import { client } from '@/lib/orpc/server';
-
-type Profile = {
-  id: string;
-  name: string;
-  description?: string | null;
-  color?: string | null;
-  isDefault?: boolean;
-  createdAt?: Date;
-};
-
-type ConnectedAccount = {
-  id: string;
-  username: string;
-  displayName?: string | null;
-  profileImageUrl?: string | null;
-  connectedAt: Date;
-  platform: string;
-  isActive: boolean;
-};
+import { ConnectedAccount } from '@prisma/client';
 
 async function getInitialData() {
   try {
-    const profiles = await client.social.getProfiles();
+    const profiles = await client.social['get-profiles']();
     const selectedProfile = profiles[0]?.id ?? '';
 
     let accounts: ConnectedAccount[] = [];
     if (selectedProfile) {
-      accounts = (await client.social.getConnectedAccounts({
+      accounts = (await client.social['get-connected-accounts']({
         profileId: selectedProfile,
-      })) as any;
+      })) as ConnectedAccount[];
     }
 
     return { profiles, selectedProfile, accounts };
   } catch (err) {
     return { profiles: [], selectedProfile: '', accounts: [] };
+    console.error('error', err);
   }
 }
 
@@ -42,9 +25,9 @@ export default async function CreatePostPage() {
   const { profiles, selectedProfile, accounts } = await getInitialData();
   return (
     <CreatePostView
-      profiles={profiles as Profile[]}
+      profiles={profiles}
       initialSelectedProfile={selectedProfile}
-      initialAccounts={accounts as any}
+      initialAccounts={accounts}
     />
   );
 }
