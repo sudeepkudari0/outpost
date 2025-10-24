@@ -60,7 +60,7 @@ export default async function DashboardPage() {
     .slice(0, 3);
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-2 space-y-6 ">
       <div>
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <p className="text-muted-foreground">
