@@ -169,7 +169,7 @@ export default function ConnectionsView({
   // React Query: Profiles
   const profilesQuery = useQuery({
     queryKey: ['social', 'profiles'],
-    queryFn: () => client.social.getProfiles(),
+    queryFn: () => client.social['get-profiles'](),
     initialData: initialProfiles || [],
   });
 
@@ -185,7 +185,7 @@ export default function ConnectionsView({
     queryKey: ['social', 'accounts', selectedProfile],
     enabled: !!selectedProfile,
     queryFn: () =>
-      client.social.getConnectedAccounts({ profileId: selectedProfile }),
+      client.social['get-connected-accounts']({ profileId: selectedProfile }),
     initialData: (() => {
       // derive initial accounts from initialPlatforms
       const flat = (initialPlatforms || []).flatMap(
@@ -322,7 +322,7 @@ export default function ConnectionsView({
           }
 
           const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
-          const result = await client.social.completeConnection({
+          const result = await client.social['complete-connection']({
             platform: stateData.platform as any,
             profileId: stateData.profileId,
             code,
@@ -408,7 +408,7 @@ export default function ConnectionsView({
               stateData.platform.charAt(0) +
               stateData.platform.slice(1).toLowerCase();
             setCompletingPlatform(platformName);
-            const result = await client.social.completeConnection({
+            const result = await client.social['complete-connection']({
               platform: stateData.platform as any,
               profileId: stateData.profileId,
               code,
@@ -486,7 +486,7 @@ export default function ConnectionsView({
         '<p style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; padding: 16px;">Redirecting to provider…</p>'
       );
 
-      const result = await client.social.initiateConnection({
+      const result = await client.social['initiate-connection']({
         platform: platformName.toUpperCase() as any,
         profileId: selectedProfile,
       });
@@ -526,7 +526,7 @@ export default function ConnectionsView({
   const handleDisconnect = async (platformName: string, accountId: string) => {
     try {
       setDisconnectingAccount(accountId);
-      await client.social.disconnectAccount({ accountId });
+      await client.social['disconnect-account']({ accountId });
       if (selectedProfile) {
         await queryClient.invalidateQueries({
           queryKey: ['social', 'accounts', selectedProfile],

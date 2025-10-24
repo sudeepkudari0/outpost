@@ -192,10 +192,10 @@ export const socialRouter = {
   /**
    * Get all profiles for the current user
    */
-  getProfiles: authed
+  'get-profiles': authed
     .route({
       method: 'GET',
-      path: '/social/profiles',
+      path: '/social/get-profiles',
       summary: 'Get all social profiles',
       tags: ['Social'],
     })
@@ -220,10 +220,10 @@ export const socialRouter = {
   /**
    * Update a profile
    */
-  updateProfile: authed
+  'update-profile': authed
     .route({
       method: 'PUT',
-      path: '/social/profiles/update',
+      path: '/social/update-profile',
       summary: 'Update a social profile',
       tags: ['Social'],
     })
@@ -268,10 +268,10 @@ export const socialRouter = {
   /**
    * Delete a profile
    */
-  deleteProfile: authed
+  'delete-profile': authed
     .route({
       method: 'DELETE',
-      path: '/social/profiles/delete',
+      path: '/social/delete-profile',
       summary: 'Delete a social profile',
       tags: ['Social'],
     })
@@ -321,10 +321,10 @@ export const socialRouter = {
   /**
    * Get connected accounts for a profile
    */
-  getConnectedAccounts: authed
+  'get-connected-accounts': authed
     .route({
       method: 'GET',
-      path: '/social/accounts',
+      path: '/social/get-connected-accounts',
       summary: 'Get connected accounts for a profile',
       tags: ['Social'],
     })
@@ -366,10 +366,10 @@ export const socialRouter = {
   /**
    * Initiate OAuth connection for Instagram or Facebook
    */
-  initiateConnection: authed
+  'initiate-connection': authed
     .route({
       method: 'POST',
-      path: '/social/connect/initiate',
+      path: '/social/initiate-connection',
       summary: 'Initiate OAuth connection for social platform',
       tags: ['Social'],
     })
@@ -459,10 +459,10 @@ export const socialRouter = {
   /**
    * Complete OAuth connection after callback
    */
-  completeConnection: authed
+  'complete-connection': authed
     .route({
       method: 'POST',
-      path: '/social/connect/complete',
+      path: '/social/complete-connection',
       summary: 'Complete OAuth connection after callback',
       tags: ['Social'],
     })
@@ -719,10 +719,10 @@ export const socialRouter = {
   /**
    * Disconnect a social account
    */
-  disconnectAccount: authed
+  'disconnect-account': authed
     .route({
       method: 'POST',
-      path: '/social/disconnect',
+      path: '/social/disconnect-account',
       summary: 'Disconnect a social account',
       tags: ['Social'],
     })

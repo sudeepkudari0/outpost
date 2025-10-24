@@ -1,7 +1,9 @@
+import { prisma } from '@/lib/db';
 import { router } from '@/lib/orpc/router';
 import { onError } from '@orpc/server';
 import { RPCHandler } from '@orpc/server/fetch';
 import { BatchHandlerPlugin } from '@orpc/server/plugins';
+import { createHash } from 'crypto';
 import { getToken } from 'next-auth/jwt';
 
 const rpcHandler = new RPCHandler(router, {
@@ -59,16 +61,68 @@ async function handleRequest(request: Request) {
     cookieName,
     secret: process.env.AUTH_SECRET,
   });
-  const user = token
+  const userFromSession = token
     ? {
         ...token,
         id: token.sub,
       }
     : undefined;
+
+  // If no session user, try API key authentication via headers
+  let apiKeyUser: any | undefined;
+  let apiKeyScopes: string[] | undefined;
+  let apiKeyId: string | undefined;
+
+  if (!userFromSession) {
+    const hdr = request.headers;
+    const rawApiKey = (() => {
+      const auth = hdr.get('authorization') || hdr.get('Authorization');
+      if (!auth) return undefined;
+      const parts = auth.trim().split(/\s+/);
+      if (parts.length === 2 && /^Bearer$/i.test(parts[0])) return parts[1];
+      return undefined;
+    })();
+
+    if (rawApiKey) {
+      try {
+        const hash = createHash('sha256').update(rawApiKey).digest('hex');
+        const keyRecord = await prisma.apiKey.findUnique({
+          where: { keyHash: hash },
+        });
+        const now = new Date();
+        if (
+          keyRecord &&
+          !keyRecord.revokedAt &&
+          (!keyRecord.expiresAt || keyRecord.expiresAt > now)
+        ) {
+          const user = await prisma.user.findUnique({
+            where: { id: keyRecord.userId },
+          });
+          if (user) {
+            apiKeyUser = {
+              id: user.id,
+              email: (user as any).email,
+              role: (user as any).role,
+            };
+            apiKeyScopes = keyRecord.scopes || [];
+            apiKeyId = keyRecord.id;
+          }
+        }
+      } catch (e) {
+        // Swallow errors to avoid leaking info; unauthenticated will be handled downstream
+      }
+    }
+  }
   const { response } = await rpcHandler.handle(request, {
     prefix: '/api/orpc',
     context: {
-      session: token ? { user: user } : undefined,
+      session: userFromSession
+        ? { user: userFromSession }
+        : apiKeyUser
+          ? { user: apiKeyUser }
+          : undefined,
+      apiKeyId,
+      apiKeyScopes,
     },
   });
 
