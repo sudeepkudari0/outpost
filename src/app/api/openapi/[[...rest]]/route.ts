@@ -19,7 +19,7 @@ const openAPIHandler = new OpenAPIHandler(router, {
       schemaConverters: [new ZodToJsonSchemaConverter()],
       specGenerateOptions: {
         info: {
-          title: 'Tr OpenAccess API',
+          title: 'PostIt API',
           version: '1.0.0',
         },
         commonSchemas: {},
