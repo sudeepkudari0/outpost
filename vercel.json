@@ -6,11 +6,5 @@
     "deploymentEnabled": {
       "main": false
     }
-  },
-  "crons": [
-    {
-      "path": "/api/cron/run",
-      "schedule": "*/10 * * * *"
-    }
-  ]
+  }
 }

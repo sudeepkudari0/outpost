@@ -1,6 +1,5 @@
-import React from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
+import Link from 'next/link';
 
 export default function TermsOfUse() {
   return (
@@ -11,7 +10,7 @@ export default function TermsOfUse() {
           <div className="flex items-center">
             <Link href="/" className="flex items-center">
               <Image
-                src="/postit-logo.png"
+                src="/images/postit-logo.png"
                 alt="Social"
                 width={1000}
                 height={1000}

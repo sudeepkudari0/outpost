@@ -1,6 +1,5 @@
-import React from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
+import Link from 'next/link';
 
 export default function PrivacyPolicy() {
   return (
@@ -12,7 +11,7 @@ export default function PrivacyPolicy() {
             <div className="flex items-center">
               <Link href="/" className="flex items-center">
                 <Image
-                  src="/postit-logo.png"
+                  src="/images/postit-logo.png"
                   alt="Social"
                   width={1000}
                   height={1000}

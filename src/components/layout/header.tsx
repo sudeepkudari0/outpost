@@ -14,7 +14,7 @@ export function LandingPageHeader() {
         <div className="flex items-center">
           <Link href="/" className="flex items-center">
             <Image
-              src="/postit-logo.png"
+              src="/images/postit-logo.png"
               alt="Social"
               width={1000}
               height={1000}
