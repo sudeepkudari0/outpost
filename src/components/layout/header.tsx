@@ -62,10 +62,12 @@ export function DashboardHeader({ user }: { user: User }) {
 
       {/* Desktop header */}
       <header className="sticky top-0 z-20 p-4 pl-0 hidden md:block">
-        <div className="flex items-center justify-between gap-2 rounded-2xl border bg-background/60 px-6 py-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="flex items-center justify-between gap-2 rounded-2xl border border-border bg-background/60 px-6 py-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="flex flex-col">
             <h1 className="text-2xl font-bold">{title}</h1>
-            <span className="text-md">{getDescription()}</span>
+            <span className="text-md text-muted-foreground">
+              {getDescription()}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />

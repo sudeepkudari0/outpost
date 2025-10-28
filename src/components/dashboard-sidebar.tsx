@@ -40,7 +40,12 @@ export function DashboardSidebar({
   return (
     <Sidebar collapsible="icon" variant="floating">
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center justify-between py-2">
+        <div
+          className={cn(
+            'flex items-center justify-between p-2',
+            state === 'collapsed' && 'p-0'
+          )}
+        >
           <div className="flex items-center gap-2">
             {state === 'collapsed' ? (
               <SidebarTrigger className="h-8 w-8" />
@@ -59,10 +64,10 @@ export function DashboardSidebar({
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className={cn('p-2', state === 'collapsed' && 'p-0')}>
         {navigation.map(section => (
           <SidebarGroup key={section.title}>
-            <SidebarGroupLabel className="text-xs font-medium text-yellow-600 uppercase tracking-wider">
+            <SidebarGroupLabel className="text-xs font-medium text-blue-600 uppercase tracking-wider">
               {section.title}
             </SidebarGroupLabel>
             <SidebarGroupContent>
