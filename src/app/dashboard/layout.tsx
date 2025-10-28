@@ -23,7 +23,7 @@ export default async function DashboardLayout({
       <div className="flex min-h-screen w-full">
         <DashboardSidebar navigation={navigation} />
         <SidebarInset>
-          <DashboardHeader title="Dashboard" user={session?.user} />
+          <DashboardHeader user={session?.user} />
           <div className="p-2 pb-20 md:pb-2">
             <div className="rounded-2xl bg-background/60 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/60">
               <main className="flex-1 overflow-auto">{children}</main>

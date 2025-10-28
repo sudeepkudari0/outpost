@@ -13,46 +13,58 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { client } from '@/lib/orpc/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Copy, Loader2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  Check,
+  Copy,
+  Facebook as FacebookIcon,
+  Instagram as InstagramIcon,
+  Link2,
+  Linkedin as LinkedinIcon,
+  Loader2,
+  Plus,
+  Twitter as TwitterIcon,
+  Youtube as YoutubeIcon,
+} from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const platformIcons = {
   TikTok: () => (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
       <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-.04-.1z" />
     </svg>
   ),
-  Instagram: () => (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.057-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.073-1.689-.073-4.948 0-3.259.014-3.668.072-4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689-.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
-    </svg>
+  Instagram: (props: { className?: string }) => (
+    <InstagramIcon className={props?.className ?? 'h-4 w-4'} />
   ),
-  Facebook: () => (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-    </svg>
+  Facebook: (props: { className?: string }) => (
+    <FacebookIcon className={props?.className ?? 'h-4 w-4'} />
   ),
-  YouTube: () => (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-    </svg>
+  YouTube: (props: { className?: string }) => (
+    <YoutubeIcon className={props?.className ?? 'h-4 w-4'} />
   ),
-  LinkedIn: () => (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.564v11.452zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-    </svg>
+  LinkedIn: (props: { className?: string }) => (
+    <LinkedinIcon className={props?.className ?? 'h-4 w-4'} />
   ),
-  Twitter: () => (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-    </svg>
+  Twitter: (props: { className?: string }) => (
+    <TwitterIcon className={props?.className ?? 'h-4 w-4'} />
   ),
   Threads: () => (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
       <path d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.589 12c.027 3.086.718 5.496 2.057 7.164 1.43 1.781 3.631 2.695 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.3-1.634-1.75-.192 1.352-.622 2.446-1.284 3.272-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.74-1.752-2.964-.065-1.19.408-2.285 1.33-3.082.88-.76 2.119-1.207 3.583-1.291a13.853 13.853 0 0 1 3.02.142c-.126-.742-.375-1.332-.74-1.811-.365-.479-.856-.735-1.414-.735-.572 0-1.009.284-1.315.854-.154.287-.277.659-.38 1.115l-2.074-.452c.126-.915.445-1.718.957-2.396.938-1.244 2.277-1.875 3.989-1.875 1.799 0 3.312.49 4.51 1.456 1.198.967 1.887 2.274 2.050 3.877.039.387.06.777.06 1.167 0 .621-.03 1.242-.09 1.863-.059.62-.148 1.24-.267 1.86-.238 1.24-.623 2.34-1.155 3.3-.532.96-1.212 1.78-2.04 2.46-1.657 1.36-3.816 2.05-6.477 2.07z" />
     </svg>
   ),
+};
+
+const platformColors = {
+  TikTok: 'from-slate-900 to-slate-700',
+  Instagram: 'from-pink-600 to-purple-600',
+  Facebook: 'from-blue-600 to-blue-700',
+  YouTube: 'from-red-600 to-red-700',
+  LinkedIn: 'from-blue-700 to-blue-800',
+  Twitter: 'from-slate-800 to-slate-900',
+  Threads: 'from-slate-900 to-purple-900',
 };
 
 interface Profile {
@@ -116,13 +128,13 @@ export default function ConnectionsView({
   const [newProfileName, setNewProfileName] = useState('');
 
   const initializePlatforms = (): Platform[] => [
-    {
-      name: 'TikTok',
-      icon: 'TikTok' as const,
-      connected: false,
-      accounts: [],
-      supported: false,
-    },
+    // {
+    //   name: "TikTok",
+    //   icon: "TikTok" as const,
+    //   connected: false,
+    //   accounts: [],
+    //   supported: false,
+    // },
     {
       name: 'Instagram',
       icon: 'Instagram' as const,
@@ -137,13 +149,13 @@ export default function ConnectionsView({
       accounts: [],
       supported: true,
     },
-    {
-      name: 'YouTube',
-      icon: 'YouTube' as const,
-      connected: false,
-      accounts: [],
-      supported: false,
-    },
+    // {
+    //   name: "YouTube",
+    //   icon: "YouTube" as const,
+    //   connected: false,
+    //   accounts: [],
+    //   supported: false,
+    // },
     {
       name: 'LinkedIn',
       icon: 'LinkedIn' as const,
@@ -151,43 +163,40 @@ export default function ConnectionsView({
       accounts: [],
       supported: true,
     },
-    {
-      name: 'Twitter',
-      icon: 'Twitter' as const,
-      connected: false,
-      accounts: [],
-      supported: true,
-    },
-    {
-      name: 'Threads',
-      icon: 'Threads' as const,
-      connected: false,
-      accounts: [],
-      supported: false,
-    },
+    // {
+    //   name: "Twitter",
+    //   icon: "Twitter" as const,
+    //   connected: false,
+    //   accounts: [],
+    //   supported: true,
+    // },
+    // {
+    //   name: "Threads",
+    //   icon: "Threads" as const,
+    //   connected: false,
+    //   accounts: [],
+    //   supported: false,
+    // },
   ];
-  // React Query: Profiles
+
   const profilesQuery = useQuery({
     queryKey: ['social', 'profiles'],
     queryFn: () => client.social['get-profiles'](),
     initialData: initialProfiles || [],
   });
 
-  // Ensure a selected profile exists
   useEffect(() => {
     if (!selectedProfile && profilesQuery.data && profilesQuery.data.length) {
       setSelectedProfile(profilesQuery.data[0].id);
     }
   }, [profilesQuery.data, selectedProfile]);
 
-  // React Query: Accounts for selected profile
   const accountsQuery = useQuery({
     queryKey: ['social', 'accounts', selectedProfile],
     enabled: !!selectedProfile,
     queryFn: () =>
       client.social['get-connected-accounts']({ profileId: selectedProfile }),
     initialData: (() => {
-      // derive initial accounts from initialPlatforms
       const flat = (initialPlatforms || []).flatMap(
         p => p.accounts || []
       ) as unknown as {
@@ -235,7 +244,7 @@ export default function ConnectionsView({
       const newProfile = await client.social.createProfile({
         name: newProfileName.trim(),
         description: `Profile for ${newProfileName.trim()}`,
-        color: '#ffeda0',
+        color: '#6366f1',
       });
 
       toast({
@@ -259,7 +268,6 @@ export default function ConnectionsView({
     }
   }, [newProfileName, queryClient, toast]);
 
-  // Handle URL params via next/navigation
   useEffect(() => {
     const code = searchParams?.get('code');
     const state = searchParams?.get('state');
@@ -278,7 +286,6 @@ export default function ConnectionsView({
     }
 
     if (code && state) {
-      // If this runs in the popup, forward code/state to opener and close immediately
       if (
         typeof window !== 'undefined' &&
         window.opener &&
@@ -286,18 +293,14 @@ export default function ConnectionsView({
       ) {
         try {
           window.opener.postMessage(
-            {
-              type: 'oauth-code',
-              code,
-              state,
-            },
+            { type: 'oauth-code', code, state },
             window.location.origin
           );
         } catch {}
         setTimeout(() => window.close(), 100);
         return;
       }
-      // Decode state to know which platform and profile we are completing
+
       try {
         const parsed = JSON.parse(Buffer.from(state, 'base64').toString()) as {
           platform: string;
@@ -310,7 +313,6 @@ export default function ConnectionsView({
 
       (async () => {
         try {
-          // Use selectedProfile if available, else derive from state
           let profileIdToUse = selectedProfile;
           if (!profileIdToUse) {
             try {
@@ -559,29 +561,17 @@ export default function ConnectionsView({
     });
   };
 
-  const selectedProfileData = (profilesQuery.data || []).find(
-    p => p.id === selectedProfile
-  );
-
   if (profilesQuery.isLoading || (selectedProfile && accountsQuery.isLoading)) {
     return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Connections</h1>
-            <p className="text-muted-foreground">
-              manage profiles and platform integrations
-            </p>
-          </div>
-          <Button className="bg-yellow-400 hover:bg-yellow-500 text-black">
-            + new profile
-          </Button>
-        </div>
-
-        <div className="flex items-center justify-center py-12">
-          <div className="flex items-center gap-2">
-            <Loader2 className="h-6 w-6 animate-spin" />
-            <span>Loading profiles and accounts...</span>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 p-4 sm:p-6 lg:p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-center py-20">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-indigo-600 dark:text-indigo-400" />
+              <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                Loading connections...
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -589,255 +579,289 @@ export default function ConnectionsView({
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Connections</h1>
-          <p className="text-muted-foreground">
-            manage profiles and platform integrations
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            placeholder="Profile name"
-            value={newProfileName}
-            onChange={e => setNewProfileName(e.target.value)}
-            className="px-3 py-2 border rounded-md text-sm"
-            onKeyPress={e => e.key === 'Enter' && createProfile()}
-          />
-          <Button
-            className="bg-yellow-400 hover:bg-yellow-500 text-black"
-            onClick={createProfile}
-            disabled={creatingProfile}
-          >
-            {creatingProfile ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                creating...
-              </>
-            ) : (
-              '+ new profile'
-            )}
-          </Button>
-        </div>
-      </div>
-
-      {profilesQuery.data?.length === 0 && (
-        <div className="mb-6">
-          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
-              <div className="space-y-2">
-                <h3 className="font-medium text-yellow-800">
-                  No Profiles Found
-                </h3>
-                <p className="text-sm text-yellow-700">
-                  Create your first profile to start connecting social media
-                  accounts.
-                </p>
+    <div className=" bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl">
+      <div className="pace-y-8">
+        {/* Header Section */}
+        <div className="flex flex-col gap-6">
+          {/* Empty State */}
+          {profilesQuery.data?.length === 0 && (
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border border-amber-200 dark:border-amber-800/50 rounded-2xl p-6 shadow-sm">
+              <div className="flex items-start gap-4">
+                <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-500" />
+                </div>
+                <div className="space-y-1 flex-1">
+                  <h3 className="font-semibold text-amber-900 dark:text-amber-100">
+                    No Profiles Found
+                  </h3>
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    Create your first profile to start connecting social media
+                    accounts and managing your integrations.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {profilesQuery.data && profilesQuery.data.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-4">
-            <h2 className="text-xl font-semibold">Select Profile</h2>
-          </div>
-
-          <Select value={selectedProfile} onValueChange={setSelectedProfile}>
-            <SelectTrigger className="w-full max-w-md">
-              <SelectValue placeholder="Select a profile" />
-            </SelectTrigger>
-            <SelectContent>
-              {profilesQuery.data.map(profile => (
-                <SelectItem key={profile.id} value={profile.id}>
+          {/* Profile Selector */}
+          {profilesQuery.data && profilesQuery.data.length > 0 && (
+            <div className="bg-white dark:bg-slate-900/50 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm backdrop-blur-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-4">
+                <div className="flex-1">
+                  <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2 block uppercase tracking-wide">
+                    Active Profile
+                  </label>
+                  <Select
+                    value={selectedProfile}
+                    onValueChange={setSelectedProfile}
+                  >
+                    <SelectTrigger className=" border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                      <SelectValue placeholder="Select a profile" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {profilesQuery.data.map(profile => (
+                        <SelectItem key={profile.id} value={profile.id}>
+                          <div className="flex items-center gap-3 py-1">
+                            <div
+                              className="w-3 h-3 rounded-full shadow-sm"
+                              style={{
+                                backgroundColor: profile.color || '#6366f1',
+                              }}
+                            />
+                            <span className="font-medium">{profile.name}</span>
+                            {profile.isDefault && (
+                              <Badge
+                                variant="secondary"
+                                className="text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300"
+                              >
+                                Default
+                              </Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2 block uppercase tracking-wide">
+                    Create New Profile
+                  </label>
                   <div className="flex items-center gap-2">
-                    <div
-                      className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: profile.color || '#ffeda0' }}
+                    <input
+                      type="text"
+                      placeholder="New profile name"
+                      value={newProfileName}
+                      onChange={e => setNewProfileName(e.target.value)}
+                      className="px-3 py-2 bg-transparent text-sm dark:text-slate-200 placeholder:text-slate-400 min-w-[140px] border border-slate-300 dark:border-slate-700 rounded-md"
+                      onKeyPress={e => e.key === 'Enter' && createProfile()}
                     />
-                    {profile.name}
-                    {profile.isDefault && (
-                      <Badge variant="secondary">default</Badge>
-                    )}
+                    <Button
+                      className="bg-blue-600 text-white shadow-md hover:shadow-lg transition-all duration-200"
+                      onClick={createProfile}
+                      disabled={creatingProfile}
+                      size="sm"
+                    >
+                      {creatingProfile ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                          Creating
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-4 w-4 mr-1.5" />
+                          Create
+                        </>
+                      )}
+                    </Button>
                   </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {selectedProfileData && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>profile id: {selectedProfileData.id}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => copyToClipboard(selectedProfileData.id)}
-              >
-                <Copy className="h-3 w-3" />
-              </Button>
+                </div>
+              </div>
             </div>
           )}
         </div>
-      )}
 
-      {selectedProfile && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">
-            Platforms for {selectedProfileData?.name || 'Selected Profile'}
-          </h2>
+        {/* Platforms Grid */}
+        {selectedProfile && (
+          <div className="space-y-4 pt-8">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+                Platform Integrations
+              </h2>
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {platforms.map(platform => {
-              const IconComponent = platformIcons[platform.icon];
-              const isConnecting = connectingPlatform === platform.name;
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {platforms.map(platform => {
+                const IconComponent = platformIcons[platform.icon];
+                const isConnecting = connectingPlatform === platform.name;
+                const isCompleting = completingPlatform === platform.name;
+                const gradientColor =
+                  platformColors[platform.icon as keyof typeof platformColors];
 
-              const showCardSpinner =
-                isConnecting || completingPlatform === platform.name;
-              return (
-                <Card key={platform.name} className="relative">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2">
-                      <IconComponent />
-                      {platform.name}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {platform.connected && platform.accounts.length > 0 ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-green-500 rounded-full" />
-                          <span className="text-sm font-medium text-green-600">
-                            Connected
-                          </span>
+                return (
+                  <Card
+                    key={platform.name}
+                    className="group relative overflow-hidden border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 hover:shadow-lg transition-all duration-300 backdrop-blur-sm"
+                  >
+                    {/* Gradient Overlay */}
+                    <div
+                      className={`absolute inset-0 bg-gradient-to-br ${gradientColor} opacity-0 group-hover:opacity-5 dark:group-hover:opacity-10 transition-opacity duration-300`}
+                    />
+
+                    <CardHeader className="pb-3 relative">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`p-2.5 rounded-xl bg-gradient-to-br ${gradientColor} shadow-md text-white`}
+                          >
+                            <IconComponent />
+                          </div>
+                          <CardTitle className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                            {platform.name}
+                          </CardTitle>
                         </div>
-
-                        {platform.accounts.map(account => {
-                          const isDisconnecting =
-                            disconnectingAccount === account.id;
-
-                          return (
-                            <div key={account.id} className="space-y-2">
-                              <div className="text-sm font-medium">
-                                {account.username}
-                              </div>
-                              {account.displayName && (
-                                <div className="text-xs text-muted-foreground">
-                                  {account.displayName}
-                                </div>
-                              )}
-                              <div className="text-xs text-muted-foreground">
-                                {new Date(
-                                  account.connectedAt
-                                ).toLocaleDateString()}
-                              </div>
-
-                              <div className="flex gap-2 pt-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-xs bg-transparent"
-                                  onClick={() =>
-                                    handleDisconnect(platform.name, account.id)
-                                  }
-                                  disabled={isDisconnecting}
-                                >
-                                  {isDisconnecting ? (
-                                    <>
-                                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                      disconnecting...
-                                    </>
-                                  ) : (
-                                    'disconnect'
-                                  )}
-                                </Button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {!platform.supported ? (
-                          <div className="space-y-3">
-                            <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-md">
-                              <AlertTriangle className="h-4 w-4 text-gray-600" />
-                              <span className="text-sm font-medium text-gray-800">
-                                Coming Soon
-                              </span>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {platform.name} integration is not available yet.
-                            </p>
-                          </div>
-                        ) : platform.requiresBYOK && !platform.byokSetup ? (
-                          <div className="space-y-3">
-                            <div className="flex items-center gap-2 p-2 bg-yellow-50 rounded-md">
-                              <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                              <span className="text-sm font-medium text-yellow-800">
-                                setup BYOK first
-                              </span>
-                            </div>
-
-                            <div className="p-3 bg-purple-50 rounded-md space-y-2">
-                              <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 bg-purple-500 rounded-full" />
-                                <span className="text-sm font-medium text-purple-700">
-                                  BYOK Required
-                                </span>
-                              </div>
-                              <p className="text-xs text-purple-600">
-                                You'll need your own API credentials to connect.
-                              </p>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            <Button
-                              className="w-full bg-yellow-400 hover:bg-yellow-500 text-black"
-                              onClick={() => handleConnect(platform.name)}
-                              disabled={showCardSpinner}
+                        {platform.supported ? (
+                          platform.connected ? (
+                            <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-0 shadow-sm">
+                              <Check className="h-3 w-3 mr-1" />
+                              Active
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700"
                             >
-                              {showCardSpinner ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  connecting...
-                                </>
-                              ) : (
-                                '+ connect'
-                              )}
-                            </Button>
-                          </div>
+                              Available
+                            </Badge>
+                          )
+                        ) : (
+                          <Badge className="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-0">
+                            Soon
+                          </Badge>
                         )}
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-      )}
+                    </CardHeader>
 
-      {profilesQuery.data?.length === 0 && (
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center space-y-4">
-            <p className="text-muted-foreground">
-              No profiles found. Create your first profile to get started.
-            </p>
-            <Button
-              className="bg-yellow-400 hover:bg-yellow-500 text-black"
-              onClick={() => setNewProfileName('My First Profile')}
-            >
-              Create Profile
-            </Button>
+                    <CardContent className="space-y-3 relative">
+                      {!platform.supported && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          This integration is coming soon. Stay tuned for
+                          updates.
+                        </p>
+                      )}
+
+                      {/* Connected Accounts */}
+                      {platform.connected && platform.accounts.length > 0 && (
+                        <div className="space-y-2">
+                          {platform.accounts.map(account => (
+                            <div
+                              key={account.id}
+                              className="group/account rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-3 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            >
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-medium text-sm text-slate-900 dark:text-slate-100 truncate">
+                                    {account.displayName || account.username}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 mt-1">
+                                    <code className="text-xs px-1.5 py-0.5 bg-slate-200 dark:bg-slate-900 text-slate-600 dark:text-slate-400 rounded font-mono">
+                                      {account.id.slice(0, 8)}
+                                    </code>
+                                    <button
+                                      className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
+                                      onClick={() =>
+                                        copyToClipboard(account.id)
+                                      }
+                                      title="Copy account ID"
+                                      type="button"
+                                    >
+                                      <Copy className="h-3 w-3 text-slate-500 dark:text-slate-400" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full text-xs border-slate-300 dark:border-slate-700 hover:bg-red-50 hover:text-red-600 hover:border-red-300 dark:hover:bg-red-950/30 dark:hover:text-red-400 dark:hover:border-red-800"
+                                disabled={disconnectingAccount === account.id}
+                                onClick={() =>
+                                  handleDisconnect(platform.name, account.id)
+                                }
+                              >
+                                {disconnectingAccount === account.id ? (
+                                  <>
+                                    <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                                    Disconnecting...
+                                  </>
+                                ) : (
+                                  'Disconnect'
+                                )}
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Connection Status & Action */}
+                      {platform.supported && (
+                        <div className="pt-2">
+                          {isCompleting ? (
+                            <div className="flex items-center justify-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 py-2">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <span className="font-medium">
+                                Completing authentication...
+                              </span>
+                            </div>
+                          ) : !platform.connected ? (
+                            <Button
+                              size="sm"
+                              className={`w-full bg-gradient-to-r ${gradientColor} hover:shadow-lg text-white font-medium transition-all duration-200`}
+                              onClick={() => handleConnect(platform.name)}
+                              disabled={
+                                isConnecting || isCompleting || !selectedProfile
+                              }
+                            >
+                              {isConnecting ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                                  Connecting...
+                                </>
+                              ) : (
+                                <>
+                                  <Link2 className="h-4 w-4 mr-1.5" />
+                                  Connect Account
+                                </>
+                              )}
+                            </Button>
+                          ) : (
+                            <div className="flex items-center justify-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 py-2">
+                              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                              <span className="font-medium">
+                                Connected & Active
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Footer Info */}
+        {selectedProfile && (
+          <div className="text-center py-8">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Manage your social media integrations securely. All connections
+              are encrypted and protected.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

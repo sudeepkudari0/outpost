@@ -4,6 +4,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { User } from 'next-auth';
 import Image from 'next/image';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { UserNav } from '../user-nav';
 
 export function LandingPageHeader() {
@@ -30,13 +31,28 @@ export function LandingPageHeader() {
   );
 }
 
-export function DashboardHeader({
-  title,
-  user,
-}: {
-  title: string;
-  user: User;
-}) {
+export function DashboardHeader({ user }: { user: User }) {
+  const pathname = usePathname();
+  const rawTitle = pathname.split('/').pop()?.replace(/-/g, ' ') || 'dashboard';
+  const title =
+    rawTitle.charAt(0).toUpperCase() + rawTitle.slice(1).toLowerCase();
+
+  const getDescription = () => {
+    switch (pathname) {
+      case '/dashboard':
+        return 'Dashboard';
+      case '/dashboard/connections':
+        return 'Manage your profiles and social integrations';
+      case '/dashboard/create-post':
+        return 'Create a new post';
+      case '/dashboard/posts':
+        return 'View and edit your scheduled and published content';
+      case '/dashboard/settings':
+        return 'Manage your account settings';
+      default:
+        return 'Dashboard';
+    }
+  };
   return (
     <>
       {/* Mobile header - only UserNav on top left */}
@@ -46,9 +62,10 @@ export function DashboardHeader({
 
       {/* Desktop header */}
       <header className="sticky top-0 z-20 p-4 pl-0 hidden md:block">
-        <div className="flex items-center justify-between gap-2 rounded-2xl border bg-background/60 px-6 py-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/60 h-[60px]">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2 rounded-2xl border bg-background/60 px-6 py-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="flex flex-col">
             <h1 className="text-2xl font-bold">{title}</h1>
+            <span className="text-md">{getDescription()}</span>
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
