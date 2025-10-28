@@ -12,6 +12,7 @@ import {
   generateOAuthState,
   saveConnectedAccount,
 } from '@/lib/meta-oauth';
+import { getTierLimits } from '@/lib/subscription';
 import {
   createTwitterOAuthService,
   generatePkceChallenge,
@@ -142,10 +143,21 @@ export const socialRouter = {
         }
       }
 
-      // Check if this is the first profile
+      // Check current profile count from DB for accurate enforcement
       const profileCount = await prisma.socialProfile.count({
         where: { userId: user.id },
       });
+
+      // Enforce with fallback to code limits if TierConfig is missing
+      const effectiveTier = (userWithUsage.subscription?.tier || 'FREE') as any;
+      const maxProfiles =
+        tierConfig?.maxProfiles ?? getTierLimits(effectiveTier).maxProfiles;
+
+      if (maxProfiles !== -1 && profileCount >= maxProfiles) {
+        throw new ORPCError('FORBIDDEN', {
+          message: `Profile limit reached. Your plan allows ${maxProfiles} profiles.`,
+        });
+      }
 
       const isFirst = profileCount === 0;
 

@@ -1,8 +1,10 @@
 'use client';
 
+import { Progress } from '@/components/ui/progress';
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -18,7 +20,9 @@ import type {
   SidebarIconName,
   SidebarNavSection,
 } from '@/config/sidebar-navigation';
+import { client } from '@/lib/orpc/client';
 import { cn } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query';
 import {
   FileText,
   Flame,
@@ -97,7 +101,10 @@ export function DashboardSidebar({
           </SidebarGroup>
         ))}
       </SidebarContent>
-
+      {/* Quota Widget */}
+      <SidebarFooter>
+        <QuotaWidget />
+      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );
@@ -123,4 +130,66 @@ function renderIcon(name: SidebarIconName) {
     default:
       return <Flame className={className} />;
   }
+}
+
+function QuotaWidget() {
+  const { state } = useSidebar();
+  const { data, isLoading } = useQuery({
+    queryKey: ['quota', 'status'],
+    queryFn: () => client.quota.status(),
+    staleTime: 30_000,
+  });
+
+  const isCollapsed = state === 'collapsed';
+
+  return (
+    <div className="border border-slate-300 dark:border-slate-700 rounded-2xl p-3 bg-background/40">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-muted-foreground">Usage</span>
+        {!isCollapsed && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+            {data?.tier ?? '—'}
+          </span>
+        )}
+      </div>
+
+      {/* Profiles */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground">Profiles</span>
+          <span className="tabular-nums">
+            {isLoading
+              ? '—'
+              : `${data?.profiles.used ?? 0}/${data?.profiles.limit ?? 0}`}
+          </span>
+        </div>
+        <Progress
+          value={isLoading ? 0 : (data?.profiles.percentage ?? 0)}
+          className="h-1.5"
+        />
+      </div>
+
+      {/* Daily Posts */}
+      <div className="space-y-1.5 mt-3">
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground">Posts today</span>
+          <span className="tabular-nums">
+            {isLoading
+              ? '—'
+              : `${data?.posts.daily.used ?? 0}/${data?.posts.daily.limit ?? 0}`}
+          </span>
+        </div>
+        <Progress
+          value={isLoading ? 0 : (data?.posts.daily.percentage ?? 0)}
+          className="h-1.5"
+        />
+      </div>
+
+      {!isCollapsed && (
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          Need more? Upgrade for higher limits and advanced features.
+        </p>
+      )}
+    </div>
+  );
 }

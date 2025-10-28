@@ -14,7 +14,6 @@ import { useToast } from '@/hooks/use-toast';
 import { client } from '@/lib/orpc/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  AlertTriangle,
   Check,
   Copy,
   Facebook as FacebookIcon,
@@ -185,6 +184,12 @@ export default function ConnectionsView({
     initialData: initialProfiles || [],
   });
 
+  const quotaQuery = useQuery({
+    queryKey: ['quota', 'status'],
+    queryFn: () => client.quota.status(),
+    staleTime: 30_000,
+  });
+
   useEffect(() => {
     if (!selectedProfile && profilesQuery.data && profilesQuery.data.length) {
       setSelectedProfile(profilesQuery.data[0].id);
@@ -239,6 +244,18 @@ export default function ConnectionsView({
       return;
     }
 
+    // Client-side guard for profile limit
+    const maxProfiles = quotaQuery.data?.profiles.limit ?? -1;
+    const usedProfiles = profilesQuery.data?.length ?? 0;
+    if (maxProfiles !== -1 && usedProfiles >= maxProfiles) {
+      toast({
+        title: 'Profile Limit Reached',
+        description: `Your plan allows ${maxProfiles} profiles. Please upgrade to add more.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       setCreatingProfile(true);
       const newProfile = await client.social.createProfile({
@@ -255,6 +272,7 @@ export default function ConnectionsView({
       setNewProfileName('');
       setSelectedProfile(newProfile.id);
       await queryClient.invalidateQueries({ queryKey: ['social', 'profiles'] });
+      await queryClient.invalidateQueries({ queryKey: ['quota', 'status'] });
     } catch (error) {
       console.error('Error creating profile:', error);
       toast({
@@ -585,21 +603,49 @@ export default function ConnectionsView({
         <div className="flex flex-col gap-6">
           {/* Empty State */}
           {profilesQuery.data?.length === 0 && (
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border border-amber-200 dark:border-amber-800/50 rounded-2xl p-6 shadow-sm">
-              <div className="flex items-start gap-4">
-                <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
-                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-500" />
-                </div>
-                <div className="space-y-1 flex-1">
-                  <h3 className="font-semibold text-amber-900 dark:text-amber-100">
-                    No Profiles Found
-                  </h3>
-                  <p className="text-sm text-amber-700 dark:text-amber-300">
-                    Create your first profile to start connecting social media
-                    accounts and managing your integrations.
+            <div className="w-full flex justify-center px-4">
+              <Card className="w-full max-w-3xl bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl p-4 sm:p-6 md:p-8">
+                <CardHeader className="pb-4 text-center sm:text-left">
+                  <CardTitle className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+                    Create Your First Profile
+                  </CardTitle>
+                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-400 max-w-prose mx-auto sm:mx-0">
+                    Profiles help you connect and manage your social accounts in
+                    one place. Start by creating your first profile to set up
+                    your workspace and integrations.
                   </p>
-                </div>
-              </div>
+                </CardHeader>
+
+                <CardContent className="pt-2">
+                  <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                    <input
+                      type="text"
+                      placeholder="Enter profile name"
+                      value={newProfileName}
+                      onChange={e => setNewProfileName(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && createProfile()}
+                      className="flex-1 px-3 py-2 bg-transparent text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 border border-slate-300 dark:border-slate-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all"
+                    />
+                    <Button
+                      className="bg-blue-600 text-white shadow-md hover:shadow-lg hover:bg-blue-700 transition-all duration-200 text-sm sm:text-base px-4 py-2.5"
+                      onClick={createProfile}
+                      disabled={creatingProfile}
+                    >
+                      {creatingProfile ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-4 w-4 mr-1.5" />
+                          Create Profile
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
 

@@ -1,7 +1,7 @@
 import type { SubscriptionTier } from '@prisma/client';
+import { prisma } from './db';
 import { getTierLimits, getUserTier, hasFeature } from './subscription';
 import { getUserUsage } from './usage';
-
 export interface QuotaCheckResult {
   allowed: boolean;
   reason?: string;
@@ -74,20 +74,21 @@ export async function canConnectProfile(
   userId: string
 ): Promise<QuotaCheckResult> {
   try {
-    const [tier, usage] = await Promise.all([
-      getUserTier(userId),
-      getUserUsage(userId),
-    ]);
-
+    const tier = await getUserTier(userId);
     const limits = getTierLimits(tier);
+
+    // Always use actual profile count from DB for accuracy
+    const profileCount = await prisma.socialProfile.count({
+      where: { userId },
+    });
 
     // Check profile limit (unless unlimited)
     if (limits.maxProfiles !== -1) {
-      if (usage.profileCount >= limits.maxProfiles) {
+      if (profileCount >= limits.maxProfiles) {
         return {
           allowed: false,
           reason: `Profile limit reached (${limits.maxProfiles} profiles maximum)`,
-          current: usage.profileCount,
+          current: profileCount,
           limit: limits.maxProfiles,
           tier,
           upgradeRequired: tier === 'FREE',
@@ -97,7 +98,7 @@ export async function canConnectProfile(
 
     return {
       allowed: true,
-      current: usage.profileCount,
+      current: profileCount,
       limit: limits.maxProfiles,
       tier,
     };
@@ -125,7 +126,6 @@ export async function canConnectAccount(
     const limits = getTierLimits(tier);
 
     // Get current account count from database
-    const { prisma } = await import('./db');
     const accountCount = await prisma.connectedAccount.count({
       where: {
         profile: { userId },
@@ -207,14 +207,16 @@ export async function getRemainingQuota(userId: string) {
 
     const limits = getTierLimits(tier);
 
-    // Get current account count
-    const { prisma } = await import('./db');
-    const accountCount = await prisma.connectedAccount.count({
-      where: {
-        profile: { userId },
-        isActive: true,
-      },
-    });
+    // Get current counts from DB for accuracy
+    const [accountCount, profileCount] = await Promise.all([
+      prisma.connectedAccount.count({
+        where: {
+          profile: { userId },
+          isActive: true,
+        },
+      }),
+      prisma.socialProfile.count({ where: { userId } }),
+    ]);
 
     return {
       tier,
@@ -239,12 +241,10 @@ export async function getRemainingQuota(userId: string) {
         },
       },
       profiles: {
-        used: usage.profileCount,
+        used: profileCount,
         limit: limits.maxProfiles,
         remaining:
-          limits.maxProfiles === -1
-            ? -1
-            : limits.maxProfiles - usage.profileCount,
+          limits.maxProfiles === -1 ? -1 : limits.maxProfiles - profileCount,
         unlimited: limits.maxProfiles === -1,
       },
       accounts: {
