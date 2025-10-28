@@ -12,7 +12,7 @@ export default auth(async req => {
     req,
     secret: process.env.AUTH_SECRET,
     cookieName:
-      process.env.NODE_ENV !== 'production'
+      process.env.NODE_ENV === 'production'
         ? '__Secure-authjs.session-token'
         : 'authjs.session-token',
   });
