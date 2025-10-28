@@ -106,6 +106,42 @@ export const postsRouter = {
     )
     .output(z.record(z.any()))
     .handler(async ({ input }) => {
+      // Helper to strip common markdown and fix hashtag formats in generated text
+      function sanitizeText(text: string): string {
+        if (!text) return text;
+        let out = text;
+        // Remove bold/italic markers
+        out = out.replace(/\*\*([^*]+)\*\*/g, '$1'); // **bold**
+        out = out.replace(/__([^_]+)__/g, '$1'); // __bold__
+        out = out.replace(/\*([^*]+)\*/g, '$1'); // *italic*
+        out = out.replace(/_([^_]+)_/g, '$1'); // _italic_
+        // Remove heading prefixes at line starts (#, ##, ###, etc.)
+        out = out.replace(/^\s{0,3}#{1,6}\s+/gm, '');
+        // Strip leading bullet markers (-, *, •) but keep the text
+        out = out.replace(/^\s*[-*•]\s+/gm, '');
+        // Convert [text](url) and [text] to plain text
+        out = out.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');
+        out = out.replace(/\[([^\]]+)\]/g, '$1');
+        // Fix hashtag formatting like 'hashtag#Beauty' -> '#Beauty'
+        out = out.replace(/\bhashtag#(\w+)/gi, '#$1');
+        // Normalize multiple spaces
+        out = out.replace(/[\t ]{2,}/g, ' ');
+        // Trim trailing spaces on lines
+        out = out.replace(/[\t ]+$/gm, '');
+        return out.trim();
+      }
+
+      function sanitizeGeneratedContent(content: any): any {
+        if (typeof content === 'string') return sanitizeText(content);
+        if (content && typeof content === 'object') {
+          const result: Record<string, any> = {};
+          for (const [k, v] of Object.entries(content)) {
+            result[k] = typeof v === 'string' ? sanitizeText(v) : v;
+          }
+          return result;
+        }
+        return content;
+      }
       const platformGuidelines: Record<string, string> = {
         instagram:
           'Focus on visual storytelling, use relevant hashtags, keep captions engaging but concise (under 2200 characters). Include emoji usage.',
@@ -143,11 +179,11 @@ export const postsRouter = {
         messages: [
           {
             role: 'system',
-            content: `You are a social media content creator specializing in ${input.platform.toUpperCase()}. Generate ${input.contentType} content optimized specifically for ${input.platform} with a ${input.tone} tone. \n\nPlatform Guidelines for ${input.platform}: ${
+            content: `You are a social media content creator specializing in ${input.platform.toUpperCase()}. Generate ${input.contentType} content optimized specifically for ${input.platform} with a ${input.tone} tone.\n\nPlatform Guidelines for ${input.platform}: ${
               platformGuidelines[input.platform]
             }\n\nContent Type Guidelines for ${input.contentType}: ${
               contentTypeGuidelines[input.contentType]
-            }\n\nReturn JSON with a single key "${input.platform}" containing the optimized content for this platform only. Make sure the content aligns with both the platform requirements and the content type strategy.`,
+            }\n\nCRITICAL FORMAT RULES:\n- Use plain text only. Do NOT use any markdown (no **bold**, no headings with #, no bullet symbols like -, *, •).\n- Do NOT include bracketed placeholders like [Product Name] or [Discount Offer]; replace with concrete, generic wording.\n- If you include hashtags, format them as #Word with spaces between each hashtag. Do NOT use 'hashtag#Word'.\n- Keep links as plain text or generic CTAs without markdown.\n\nReturn JSON with a single key "${input.platform}" containing only the plain-text content for this platform.`,
           },
           { role: 'user', content: input.prompt },
         ],
@@ -163,9 +199,12 @@ export const postsRouter = {
       }
 
       try {
-        return JSON.parse(content);
+        const parsed = JSON.parse(content);
+        return sanitizeGeneratedContent(parsed);
       } catch {
-        return { [input.platform]: content } as Record<string, unknown>;
+        return {
+          [input.platform]: sanitizeGeneratedContent(content),
+        } as Record<string, unknown>;
       }
     }),
 
@@ -606,7 +645,7 @@ export const postsRouter = {
           return { success: true, id: created.id };
         },
         {
-          timeout: 30000, // 30 second timeout for external API calls
+          timeout: 120000, // 120 second timeout for external API calls
         }
       );
 

@@ -416,7 +416,7 @@ export const socialRouter = {
       const baseRaw =
         process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
       const redirectUri = `${baseRaw}/dashboard/connections`;
-
+      console.log('platform', platform);
       // Generate state for CSRF protection and encode it with metadata
       // This encoded state will be sent to the OAuth provider and returned in the callback
       const encodedState = Buffer.from(

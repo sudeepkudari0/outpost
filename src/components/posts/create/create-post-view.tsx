@@ -324,6 +324,20 @@ export default function CreatePostView({
       return;
     }
 
+    // Validate media requirements for Instagram before proceeding
+    const selectedPlatforms = selectedAccountIds
+      .map(id => accounts.find(a => a.id === id)?.platform?.toLowerCase())
+      .filter(Boolean) as string[];
+    if (selectedPlatforms.includes('instagram') && uploadedMedia.length === 0) {
+      toast({
+        title: 'Instagram requires media',
+        description:
+          'Please upload at least one image or video to post on Instagram.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setBusy(true);
     try {
       const platforms = selectedAccountIds.map(accountId => {
