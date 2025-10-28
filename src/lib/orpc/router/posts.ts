@@ -1,10 +1,12 @@
+// Scheduling handled via Vercel Cron runner; no external cron client
 import { generateImage as generateDalleImage } from '@/lib/generate-image';
 import { openai } from '@/lib/openai';
-import { getPublisher, type PublishRequest } from '@/lib/social-publishers';
+import { getPublisher } from '@/lib/social-publishers/publishers';
+import { PublishRequest } from '@/lib/social-publishers/types';
 import { getPresignedUrl } from '@/lib/storage';
 import { authed } from '@/orpc';
 import { ORPCError } from '@orpc/server';
-import { Platform, PublishStatus } from '@prisma/client';
+import { Platform } from '@prisma/client';
 import { z } from 'zod';
 
 const ListPostsInput = z.object({
@@ -334,6 +336,7 @@ export const postsRouter = {
                 input.publishingOption === 'schedule' && input.scheduledFor
                   ? new Date(input.scheduledFor)
                   : null,
+              timezone: input.timezone,
               platforms: {
                 create: input.platforms.map(p => ({
                   accountId: p.accountId,
@@ -347,6 +350,8 @@ export const postsRouter = {
               platforms: true,
             },
           });
+
+          // If scheduling, nothing else to do here; Vercel cron will pick it up
 
           // If draft, just return early - no publishing needed
           if (input.publishingOption === 'draft') {
@@ -372,10 +377,14 @@ export const postsRouter = {
             // Store errors to throw at the end if any fail
             const publishErrors: string[] = [];
 
-            // Platforms that support native scheduling via their API
-            const platformsWithNativeScheduling = ['FACEBOOK'];
+            // For scheduled posts, defer actual publishing to the cron runner
+            if (input.publishingOption === 'schedule') {
+              // All platforms will be handled by the cron job
+              // Just mark them as PENDING and return
+              return { success: true, id: created.id };
+            }
 
-            // Publish to each platform sequentially to capture all errors
+            // For immediate publishing, process each platform
             for (const postPlatform of created.platforms) {
               const account = connectedAccounts.find(
                 (a: any) => a.id === postPlatform.accountId
@@ -443,16 +452,6 @@ export const postsRouter = {
                 }
               }
 
-              // For scheduled posts on platforms WITHOUT native scheduling,
-              // skip publishing and let the cron job handle it later
-              if (
-                input.publishingOption === 'schedule' &&
-                !platformsWithNativeScheduling.includes(account.platform)
-              ) {
-                // Keep as PENDING - cron job will publish at scheduled time
-                continue;
-              }
-
               // Get the appropriate publisher
               const publisher = getPublisher(account.platform);
               if (!publisher) {
@@ -498,11 +497,6 @@ export const postsRouter = {
                 })),
                 accessToken: account.accessToken,
                 platformUserId: account.platformUserId,
-                // Pass scheduledFor for native platform scheduling (only Facebook supports this)
-                scheduledFor:
-                  input.publishingOption === 'schedule' && input.scheduledFor
-                    ? new Date(input.scheduledFor)
-                    : undefined,
               };
 
               try {
@@ -511,20 +505,13 @@ export const postsRouter = {
 
                 if (result.success) {
                   // Update post platform with success
-                  // For scheduled posts, mark as SCHEDULED; for immediate posts, mark as PUBLISHED
-                  const platformStatus: PublishStatus =
-                    input.publishingOption === 'schedule'
-                      ? 'SCHEDULED'
-                      : 'PUBLISHED';
-
                   await tx.postPlatform.update({
                     where: { id: postPlatform.id },
                     data: {
-                      status: platformStatus,
+                      status: 'PUBLISHED',
                       publishedId: result.platformPostId,
                       publishedUrl: result.platformPostUrl,
-                      publishedAt:
-                        input.publishingOption === 'now' ? new Date() : null,
+                      publishedAt: new Date(),
                     },
                   });
                 } else {
@@ -581,50 +568,32 @@ export const postsRouter = {
               });
             }
 
-            // Check if all platforms published/scheduled successfully
+            // Check if all platforms published successfully
             const updatedPostPlatforms = await tx.postPlatform.findMany({
               where: { postId: created.id },
             });
 
-            // For scheduled posts, accept both SCHEDULED (native scheduling) and PENDING (cron job scheduling)
-            // For immediate posts, check for PUBLISHED status
-            const allSuccess =
-              input.publishingOption === 'schedule'
-                ? updatedPostPlatforms.every(
-                    (pp: any) =>
-                      pp.status === 'SCHEDULED' || pp.status === 'PENDING'
-                  )
-                : updatedPostPlatforms.every(
-                    (pp: any) => pp.status === 'PUBLISHED'
-                  );
+            const allSuccess = updatedPostPlatforms.every(
+              (pp: any) => pp.status === 'PUBLISHED'
+            );
 
             // Update overall post status
             await tx.post.update({
               where: { id: created.id },
               data: {
-                status:
-                  input.publishingOption === 'schedule'
-                    ? 'SCHEDULED'
-                    : 'PUBLISHED',
-                publishedAt:
-                  input.publishingOption === 'now' && allSuccess
-                    ? new Date()
-                    : null,
+                status: 'PUBLISHED',
+                publishedAt: allSuccess ? new Date() : null,
               },
             });
 
-            // Log the publishing/scheduling action
+            // Log the publishing action
             await tx.usageLog.create({
               data: {
                 userId: user.id,
-                action:
-                  input.publishingOption === 'schedule'
-                    ? 'POST_SCHEDULED'
-                    : 'POST_PUBLISHED',
+                action: 'POST_PUBLISHED',
                 metadata: {
                   postId: created.id,
                   publishingOption: input.publishingOption,
-                  scheduledFor: input.scheduledFor,
                   platforms: updatedPostPlatforms.map((pp: any) => ({
                     platform: pp.platform,
                     status: pp.status,
@@ -642,5 +611,65 @@ export const postsRouter = {
       );
 
       return result;
+    }),
+
+  cancelScheduledPost: authed
+    .route({
+      method: 'POST',
+      path: '/posts/cancel-scheduled',
+      summary: 'Cancel a scheduled post',
+      tags: ['Posts'],
+    })
+    .input(
+      z.object({
+        postId: z.string().min(1),
+      })
+    )
+    .output(z.object({ success: z.boolean() }))
+    .handler(async ({ input, context }) => {
+      const { prisma, user } = context;
+
+      if (!prisma || !user?.id) {
+        throw new ORPCError('UNAUTHORIZED', { message: 'Not authenticated' });
+      }
+
+      // Find the scheduled post
+      const post = await prisma.post.findFirst({
+        where: {
+          id: input.postId,
+          userId: user.id,
+          status: 'SCHEDULED',
+        },
+      });
+
+      if (!post) {
+        throw new ORPCError('NOT_FOUND', {
+          message: 'Scheduled post not found',
+        });
+      }
+
+      // No external cron to cancel; just mark as canceled
+
+      // Update post status to canceled
+      await prisma.post.update({
+        where: { id: input.postId },
+        data: {
+          status: 'CANCELED',
+        },
+      });
+
+      // Log the cancellation
+      await prisma.usageLog.create({
+        data: {
+          userId: user.id,
+          action: 'POST_SCHEDULED',
+          metadata: {
+            postId: input.postId,
+            cancelled: true,
+          },
+        },
+      });
+
+      return { success: true };
     }),
 };

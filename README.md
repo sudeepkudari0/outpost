@@ -7,7 +7,7 @@ An AI-powered social media management application that generates platform-specif
 - **AI Content Generation**: Create platform-optimized copy for LinkedIn, Instagram, Twitter/X, and Facebook
 - **Multi-Platform Publishing**: Connect and post to multiple social media accounts simultaneously
 - **Media Upload**: Upload images and media files through Late's API
-- **Scheduling**: Publish immediately or schedule posts for optimal engagement times
+- **Scheduling**: Publish immediately or schedule posts for optimal engagement times using cron-job.org
 - **Account Management**: Connect and manage multiple social media accounts per platform
 
 ## Supported Platforms
@@ -85,7 +85,7 @@ An AI-powered social media management application that generates platform-specif
 - **AI Content Generation**: Create platform-optimized copy for LinkedIn, Instagram, Twitter/X, and Facebook
 - **Multi-Platform Publishing**: Connect and post to multiple social media accounts simultaneously
 - **Media Upload**: Upload images and media files through Late's API
-- **Scheduling**: Publish immediately or schedule posts for optimal engagement times
+- **Scheduling**: Publish immediately or schedule posts for optimal engagement times using cron-job.org
 - **Account Management**: Connect and manage multiple social media accounts per platform
 
 ## Supported Platforms
