@@ -22,7 +22,8 @@ export default auth(async req => {
   const isAuthRoute =
     nextUrl.pathname.startsWith('/login') ||
     nextUrl.pathname.startsWith('/auth') ||
-    nextUrl.pathname.startsWith('/set-password');
+    nextUrl.pathname.startsWith('/set-password') ||
+    nextUrl.pathname.startsWith('/signup');
 
   const isApiAuthRoute = nextUrl.pathname.startsWith('/api/auth');
   const isRootRoute = nextUrl.pathname === '/';

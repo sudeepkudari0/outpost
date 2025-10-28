@@ -1,7 +1,6 @@
 'use client';
 
 import { individualClient } from '@/lib/orpc/client';
-import { LoginSchema } from '@/schemas';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -21,34 +20,43 @@ import {
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 
-type LoginValues = z.infer<typeof LoginSchema>;
+const SignupSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Valid email is required'),
+  password: z.string().min(6, 'Minimum 6 characters required'),
+});
 
-export const LoginForm = ({ callbackUrl }: { callbackUrl: string }) => {
+type SignupValues = z.infer<typeof SignupSchema>;
+
+export const SignupForm = ({ error: inboundError }: { error?: string }) => {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    inboundError === 'EMAIL_IN_USE_DIFFERENT_METHOD'
+      ? 'This email is already registered with a password. Please log in instead.'
+      : null
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const form = useForm<LoginValues>({
-    resolver: zodResolver(LoginSchema),
-    defaultValues: { email: '', password: '', code: undefined },
+  const form = useForm<SignupValues>({
+    resolver: zodResolver(SignupSchema),
+    defaultValues: { name: '', email: '', password: '' },
   });
 
-  async function onSubmit(values: LoginValues) {
+  async function onSubmit(values: SignupValues) {
     setError(null);
     setIsSubmitting(true);
     try {
-      // Validate via ORPC procedure first
-      const res = await individualClient.auth.signIn({
+      const res = await individualClient.auth.signUp({
+        name: values.name,
         email: values.email,
         password: values.password,
       });
 
       if (!res.success) {
-        setError(res.message || 'Invalid credentials');
+        setError(res.message || 'Unable to create account');
         return;
       }
 
-      // Create a NextAuth session using credentials provider
       const result = await signIn('credentials', {
         email: values.email,
         password: values.password,
@@ -56,11 +64,11 @@ export const LoginForm = ({ callbackUrl }: { callbackUrl: string }) => {
       });
 
       if (result?.error) {
-        setError('Invalid credentials');
+        setError('Sign in failed after signup');
         return;
       }
 
-      router.push(callbackUrl ? callbackUrl : '/dashboard');
+      router.push('/dashboard');
       router.refresh();
     } catch (e) {
       setError('Something went wrong. Please try again.');
@@ -75,15 +83,35 @@ export const LoginForm = ({ callbackUrl }: { callbackUrl: string }) => {
         <div className="bg-card rounded-2xl shadow-xl border border-border p-8">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">
-              Welcome Back
+              Create Account
             </h1>
             <p className="text-sm text-muted-foreground">
-              Sign in to your account
+              Get started in seconds
             </p>
           </div>
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-foreground text-sm font-medium">
+                      Full name
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Jane Doe"
+                        className="h-11 bg-background border-border text-foreground"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="email"
@@ -138,7 +166,7 @@ export const LoginForm = ({ callbackUrl }: { callbackUrl: string }) => {
                 className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Signing in...' : 'Sign in'}
+                {isSubmitting ? 'Creating account...' : 'Sign up'}
               </Button>
             </form>
           </Form>
@@ -156,9 +184,7 @@ export const LoginForm = ({ callbackUrl }: { callbackUrl: string }) => {
 
           <Button
             variant="outline"
-            onClick={() =>
-              signIn('google', { callbackUrl: callbackUrl || '/dashboard' })
-            }
+            onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
             className="w-full h-11 border-border hover:bg-accent text-foreground font-medium rounded-lg transition-colors"
           >
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
@@ -183,12 +209,12 @@ export const LoginForm = ({ callbackUrl }: { callbackUrl: string }) => {
           </Button>
 
           <p className="text-center text-sm text-muted-foreground mt-6">
-            Don't have an account?{' '}
+            Already have an account?{' '}
             <a
-              href="/signup"
+              href="/login"
               className="font-semibold text-primary hover:underline"
             >
-              Sign up
+              Log in
             </a>
           </p>
         </div>

@@ -47,20 +47,24 @@ export function getDashboardSidebarNavigation(
     },
   ];
 
+  // Add developer section for all roles
+  const developer: SidebarNavSection = {
+    title: 'DEVELOPER',
+    items: [{ name: 'API Access', href: '/dashboard/api-keys', icon: 'Key' }],
+  };
+
   if (role === 'ADMIN') {
     // Admins get extra management links
     return [
       base[0],
+      developer,
       {
         title: 'ADMIN',
-        items: [
-          { name: 'API Keys', href: '/dashboard/api-keys', icon: 'Key' },
-          { name: 'Users', href: '/dashboard/users', icon: 'Users' },
-        ],
+        items: [{ name: 'Users', href: '/dashboard/users', icon: 'Users' }],
       },
       base[1],
     ];
   }
 
-  return base;
+  return [base[0], developer, base[1]];
 }

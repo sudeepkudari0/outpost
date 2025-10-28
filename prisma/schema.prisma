@@ -17,7 +17,8 @@ model User {
   gender         String?
   isVerified     Boolean    @default(false)
   status         UserStatus @default(ACTIVE)
-  email          String?
+  email          String     @unique
+  emailVerified  DateTime?
   whatsapp       String?
   image          String?
   passwordSet    Boolean    @default(false)
@@ -31,8 +32,6 @@ model User {
   Account Account[]
   Session Session[]
   ApiKey  ApiKey[]
-
-  @@unique([email, whatsapp])
 }
 
 model Subscription {
@@ -327,6 +326,7 @@ enum UserStatus {
 
 enum AccountType {
   EMAIL
+  oidc
 }
 
 model ApiKey {
