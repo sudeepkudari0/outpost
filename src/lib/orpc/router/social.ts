@@ -432,7 +432,9 @@ export const socialRouter = {
       }
 
       if (platform === 'TWITTER') {
-        const tw = createTwitterOAuthService(redirectUri);
+        // Use the correct Twitter callback URL
+        const twitterRedirectUri = `${baseRaw}/api/auth/twitter/callback`;
+        const tw = createTwitterOAuthService(twitterRedirectUri);
         const codeVerifier = generatePkceVerifier();
         const codeChallenge = generatePkceChallenge(codeVerifier);
 

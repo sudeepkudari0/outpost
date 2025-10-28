@@ -1,9 +1,9 @@
 /**
  * Twitter (X) OAuth 2.0 with PKCE + basic user retrieval
  * Docs summary:
- * - Authorization: https://twitter.com/i/oauth2/authorize
- * - Token: https://api.twitter.com/2/oauth2/token
- * - Me: GET https://api.twitter.com/2/users/me?user.fields=profile_image_url,name,username
+ * - Authorization: https://x.com/i/oauth2/authorize
+ * - Token: https://api.x.com/2/oauth2/token
+ * - Me: GET https://api.x.com/2/users/me?user.fields=profile_image_url,name,username
  * Scopes needed: tweet.read tweet.write users.read offline.access
  */
 
