@@ -514,6 +514,44 @@ export async function getQuotaStatus(userId: string) {
           ),
         },
       },
+      ai: {
+        daily: {
+          ...((quota as any).ai?.daily || {
+            used: 0,
+            limit: 0,
+            remaining: 0,
+            unlimited: false,
+          }),
+          percentage: calculatePercentage(
+            (quota as any).ai?.daily?.used || 0,
+            (quota as any).ai?.daily?.limit || 0
+          ),
+          status: getStatus(
+            calculatePercentage(
+              (quota as any).ai?.daily?.used || 0,
+              (quota as any).ai?.daily?.limit || 0
+            )
+          ),
+        },
+        monthly: {
+          ...((quota as any).ai?.monthly || {
+            used: 0,
+            limit: 0,
+            remaining: 0,
+            unlimited: false,
+          }),
+          percentage: calculatePercentage(
+            (quota as any).ai?.monthly?.used || 0,
+            (quota as any).ai?.monthly?.limit || 0
+          ),
+          status: getStatus(
+            calculatePercentage(
+              (quota as any).ai?.monthly?.used || 0,
+              (quota as any).ai?.monthly?.limit || 0
+            )
+          ),
+        },
+      },
       profiles: {
         ...quota.profiles,
         percentage: calculatePercentage(

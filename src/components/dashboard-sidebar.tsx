@@ -36,8 +36,10 @@ import { usePathname } from 'next/navigation';
 
 export function DashboardSidebar({
   navigation,
+  role,
 }: {
   navigation: SidebarNavSection[];
+  role: 'ADMIN' | 'USER';
 }) {
   const pathname = usePathname();
   const { state } = useSidebar();
@@ -102,9 +104,11 @@ export function DashboardSidebar({
         ))}
       </SidebarContent>
       {/* Quota Widget */}
-      <SidebarFooter>
-        <QuotaWidget />
-      </SidebarFooter>
+      {role !== 'ADMIN' && (
+        <SidebarFooter>
+          <QuotaWidget />
+        </SidebarFooter>
+      )}
       <SidebarRail />
     </Sidebar>
   );
@@ -160,7 +164,9 @@ function QuotaWidget() {
           <span className="tabular-nums">
             {isLoading
               ? '—'
-              : `${data?.profiles.used ?? 0}/${data?.profiles.limit ?? 0}`}
+              : data?.tier === 'ENTERPRISE'
+                ? '∞'
+                : `${data?.profiles?.used ?? 0}/${data?.profiles?.limit ?? 0}`}
           </span>
         </div>
         <Progress
@@ -176,7 +182,9 @@ function QuotaWidget() {
           <span className="tabular-nums">
             {isLoading
               ? '—'
-              : `${data?.posts.daily.used ?? 0}/${data?.posts.daily.limit ?? 0}`}
+              : data?.tier === 'ENTERPRISE'
+                ? '∞'
+                : `${data?.posts?.daily?.used ?? 0}/${data?.posts?.daily?.limit ?? 0}`}
           </span>
         </div>
         <Progress
@@ -192,7 +200,9 @@ function QuotaWidget() {
           <span className="tabular-nums">
             {isLoading
               ? '—'
-              : `${(data as any)?.ai?.daily?.used ?? 0}/${(data as any)?.ai?.daily?.limit ?? 0}`}
+              : data?.tier === 'ENTERPRISE'
+                ? '∞'
+                : `${(data as any)?.ai?.daily?.used ?? 0}/${(data as any)?.ai?.daily?.limit ?? 0}`}
           </span>
         </div>
         <Progress

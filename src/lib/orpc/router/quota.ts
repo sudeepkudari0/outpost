@@ -32,6 +32,24 @@ export const quotaRouter = {
             status: z.enum(['normal', 'caution', 'warning', 'exceeded']),
           }),
         }),
+        ai: z.object({
+          daily: z.object({
+            used: z.number(),
+            limit: z.number(),
+            remaining: z.number(),
+            unlimited: z.boolean(),
+            percentage: z.number(),
+            status: z.enum(['normal', 'caution', 'warning', 'exceeded']),
+          }),
+          monthly: z.object({
+            used: z.number(),
+            limit: z.number(),
+            remaining: z.number(),
+            unlimited: z.boolean(),
+            percentage: z.number(),
+            status: z.enum(['normal', 'caution', 'warning', 'exceeded']),
+          }),
+        }),
         profiles: z.object({
           used: z.number(),
           limit: z.number(),

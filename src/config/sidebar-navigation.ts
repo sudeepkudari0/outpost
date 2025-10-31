@@ -55,16 +55,31 @@ export function getDashboardSidebarNavigation(
   };
 
   if (role === 'ADMIN') {
-    // Admins get extra management links
-    return [
-      base[0],
-      developer,
+    // Admins: hide Posts, Connections, Team, Create Post, and Developer
+    const adminMain: SidebarNavSection = {
+      title: base[0].title,
+      items: base[0].items.filter(
+        i => i.name !== 'Posts' && i.name !== 'Connections' && i.name !== 'Team'
+      ),
+    };
+
+    // Filter ACTIVE to remove Create Post for admins
+    const adminActive: SidebarNavSection = {
+      title: base[1].title,
+      items: base[1].items.filter(i => i.name !== 'Create Post'),
+    };
+
+    const sections: SidebarNavSection[] = [
+      adminMain,
       {
         title: 'ADMIN',
         items: [{ name: 'Users', href: '/dashboard/users', icon: 'Users' }],
       },
-      base[1],
     ];
+
+    if (adminActive.items.length > 0) sections.push(adminActive);
+
+    return sections;
   }
 
   return [base[0], developer, base[1]];

@@ -21,7 +21,7 @@ export default async function DashboardLayout({
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
-        <DashboardSidebar navigation={navigation} />
+        <DashboardSidebar navigation={navigation} role={role} />
         <SidebarInset>
           <DashboardHeader user={session?.user} />
           <div className="p-2 pb-20 md:pb-2">

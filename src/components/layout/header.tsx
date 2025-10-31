@@ -34,13 +34,30 @@ export function LandingPageHeader() {
 export function DashboardHeader({ user }: { user: User }) {
   const pathname = usePathname();
   const rawTitle = pathname.split('/').pop()?.replace(/-/g, ' ') || 'dashboard';
-  const title =
-    rawTitle.charAt(0).toUpperCase() + rawTitle.slice(1).toLowerCase();
+
+  const getTitle = () => {
+    switch (pathname) {
+      case '/dashboard':
+        return user.role === 'ADMIN' ? 'Admin Dashboard' : 'Dashboard';
+      case '/dashboard/connections':
+        return 'Connections';
+      case '/dashboard/create-post':
+        return 'Create Post';
+      case '/dashboard/posts':
+        return 'Posts';
+      case '/dashboard/settings':
+        return 'Settings';
+      default: {
+        const t = rawTitle;
+        return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
+      }
+    }
+  };
 
   const getDescription = () => {
     switch (pathname) {
       case '/dashboard':
-        return 'Dashboard';
+        return user.role === 'ADMIN' ? 'Platform Overview' : 'Dashboard';
       case '/dashboard/connections':
         return 'Manage your profiles and social integrations';
       case '/dashboard/create-post':
@@ -64,7 +81,7 @@ export function DashboardHeader({ user }: { user: User }) {
       <header className="sticky top-0 z-20 p-4 pl-0 hidden md:block">
         <div className="flex items-center justify-between gap-2 rounded-2xl border border-border bg-background/60 px-6 py-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="flex flex-col">
-            <h1 className="text-2xl font-bold">{title}</h1>
+            <h1 className="text-2xl font-bold">{getTitle()}</h1>
             <span className="text-md text-muted-foreground">
               {getDescription()}
             </span>

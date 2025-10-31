@@ -30,8 +30,8 @@ export const TIER_LIMITS = {
     maxPostsPerMonth: 3000,
     maxConnectedAccounts: 20,
     // AI limits
-    maxAiGenerationsPerDay: 50,
-    maxAiGenerationsPerMonth: 1000,
+    maxAiGenerationsPerDay: 5,
+    maxAiGenerationsPerMonth: 150,
     features: [
       'basic_posting',
       'basic_scheduling',
@@ -49,8 +49,8 @@ export const TIER_LIMITS = {
     maxPostsPerMonth: 15000,
     maxConnectedAccounts: 100,
     // AI limits
-    maxAiGenerationsPerDay: 500,
-    maxAiGenerationsPerMonth: 10000,
+    maxAiGenerationsPerDay: 15,
+    maxAiGenerationsPerMonth: 450,
     features: [
       'basic_posting',
       'basic_scheduling',
