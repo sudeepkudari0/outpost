@@ -1,5 +1,6 @@
 'use client';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -11,12 +12,14 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { client } from '@/lib/orpc/client';
+import { CheckIcon } from 'lucide-react';
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { contentTypes, toneOptions } from './constants';
 
 type Props = {
-  targetPlatform: string;
-  setTargetPlatform: (v: string) => void;
+  targetPlatforms: string[];
+  setTargetPlatforms: (v: string[]) => void;
   contentType: string;
   setContentType: (v: string) => void;
   topic: string;
@@ -27,9 +30,19 @@ type Props = {
   busy: boolean;
 };
 
+const PLATFORMS = [
+  {
+    value: 'instagram',
+    label: 'Instagram',
+    icon: '/images/logos/instagram.png',
+  },
+  { value: 'facebook', label: 'Facebook', icon: '/images/logos/facebook.png' },
+  { value: 'linkedin', label: 'LinkedIn', icon: '/images/logos/linkedin.png' },
+];
+
 export function ComposerSection({
-  targetPlatform,
-  setTargetPlatform,
+  targetPlatforms,
+  setTargetPlatforms,
   contentType,
   setContentType,
   topic,
@@ -118,32 +131,57 @@ export function ComposerSection({
         </div>
 
         <div className="space-y-3">
-          <Label className="text-sm md:text-base">Target Platform</Label>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-sm md:text-base">Target Platforms</Label>
+              <p className="text-sm text-black/80">
+                Select one or more platforms to generate content for
+              </p>
+            </div>
+            {busy && targetPlatforms.length > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                Generating for {targetPlatforms.length}{' '}
+                {targetPlatforms.length === 1 ? 'platform' : 'platforms'}
+              </Badge>
+            )}
+          </div>
           <div className="flex flex-wrap gap-2">
-            {[
-              { value: 'instagram', label: 'Instagram', icon: '📸' },
-              { value: 'facebook', label: 'Facebook', icon: '👥' },
-              { value: 'linkedin', label: 'LinkedIn', icon: '💼' },
-              { value: 'twitter', label: 'Twitter/X', icon: '🐦' },
-              { value: 'tiktok', label: 'TikTok', icon: '🎵' },
-              { value: 'threads', label: 'Threads', icon: '🧵' },
-              { value: 'youtube', label: 'YouTube', icon: '📺' },
-            ].map(p => (
-              <button
-                key={p.value}
-                type="button"
-                onClick={() => setTargetPlatform(p.value)}
-                className={`inline-flex items-center gap-2 px-2 py-1 md:px-3 md:py-2 rounded-full border text-xs md:text-sm transition-all ${
-                  targetPlatform === p.value
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-border hover:border-primary/50 hover:bg-muted/50'
-                }`}
-                disabled={aiDisabled}
-              >
-                <span className="text-base md:text-lg">{p.icon}</span>
-                <span className="font-medium">{p.label}</span>
-              </button>
-            ))}
+            {PLATFORMS.map(p => {
+              const isSelected = targetPlatforms.includes(p.value);
+              return (
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={() => {
+                    if (isSelected) {
+                      setTargetPlatforms(
+                        targetPlatforms.filter(pl => pl !== p.value)
+                      );
+                    } else {
+                      setTargetPlatforms([...targetPlatforms, p.value]);
+                    }
+                  }}
+                  className={`inline-flex items-center gap-2 px-2 py-1 rounded border text-xs md:text-sm transition-all relative ${
+                    isSelected
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                  }`}
+                  disabled={aiDisabled}
+                >
+                  {isSelected && (
+                    <CheckIcon className="size-3 md:size-4 text-primary" />
+                  )}
+                  <Image
+                    src={p.icon}
+                    alt={p.label}
+                    width={20}
+                    height={20}
+                    className="size-5 md:size-6"
+                  />
+                  <span className="font-medium">{p.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -156,7 +194,7 @@ export function ComposerSection({
                 type="button"
                 onClick={() => setContentType(type.value)}
                 title={type.description}
-                className={`px-2 py-1 md:px-3 md:py-2 rounded-full border text-xs md:text-sm transition-all ${
+                className={`px-2 py-1 rounded border text-xs md:text-sm transition-all ${
                   contentType === type.value
                     ? 'border-primary bg-primary/10 text-primary'
                     : 'border-border hover:border-primary/50 hover:bg-muted/50'
@@ -177,7 +215,7 @@ export function ComposerSection({
                 key={option.value}
                 type="button"
                 onClick={() => setTone(option.value)}
-                className={`inline-flex items-center gap-2 px-2 py-1 md:px-3 md:py-2 rounded-full border text-xs md:text-sm transition-all ${
+                className={`inline-flex items-center gap-2 px-2 py-1 rounded border text-xs md:text-sm transition-all ${
                   tone === option.value
                     ? 'border-primary bg-primary/10 text-primary'
                     : 'border-border hover:border-primary/50 hover:bg-muted/50'
@@ -193,15 +231,31 @@ export function ComposerSection({
 
         <Button
           onClick={onGenerate}
-          disabled={busy || !topic.trim() || aiDisabled || checking}
+          disabled={
+            busy ||
+            !topic.trim() ||
+            aiDisabled ||
+            checking ||
+            targetPlatforms.length === 0 ||
+            !contentType ||
+            !tone
+          }
           className="w-full"
           size="lg"
         >
           {busy
-            ? 'Generating...'
+            ? `Generating for ${targetPlatforms.length} ${targetPlatforms.length === 1 ? 'platform' : 'platforms'}...`
             : aiDisabled
               ? 'AI not available'
-              : '✨ Generate Content'}
+              : !topic.trim()
+                ? 'Enter a topic'
+                : targetPlatforms.length === 0
+                  ? 'Select at least one platform'
+                  : !contentType
+                    ? 'Select a content type'
+                    : !tone
+                      ? 'Select a tone'
+                      : `✨ Generate Content for ${targetPlatforms.length} ${targetPlatforms.length === 1 ? 'platform' : 'platforms'}`}
         </Button>
       </CardContent>
     </Card>

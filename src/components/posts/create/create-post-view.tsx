@@ -4,7 +4,6 @@ import type React from 'react';
 
 import { ComposerSection } from '@/components/posts/create/composer-section';
 import { GeneratedPreview } from '@/components/posts/create/generated-preview';
-import { MediaSection } from '@/components/posts/create/media-section';
 import { ScheduleSection } from '@/components/posts/create/scheduled-section';
 import {
   Card,
@@ -65,10 +64,13 @@ export default function CreatePostView({
   const [selected, setSelected] = useState<Record<string, boolean>>({});
 
   const [topic, setTopic] = useState('');
-  const [tone, setTone] = useState('professional');
-  const [contentType, setContentType] = useState('promotional');
-  const [targetPlatform, setTargetPlatform] = useState('instagram');
+  const [tone, setTone] = useState('');
+  const [contentType, setContentType] = useState('');
+  const [targetPlatforms, setTargetPlatforms] = useState<string[]>([]);
   const [bundle, setBundle] = useState<Bundle | null>(null);
+  // Media per platform: Record<platform, mediaItems[]>
+  const [platformMedia, setPlatformMedia] = useState<Record<string, any[]>>({});
+  // Legacy state for MediaSection (will be removed)
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploadedMedia, setUploadedMedia] = useState<any[]>([]);
   const [mediaPrompt, setMediaPrompt] = useState('');
@@ -88,9 +90,9 @@ export default function CreatePostView({
     defaultValues: {
       profileId: initialSelectedProfile || '',
       accounts: [],
-      platform: targetPlatform as any,
-      contentType: contentType as any,
-      tone: tone as any,
+      platform: (targetPlatforms[0] || '') as any,
+      contentType: (contentType || '') as any,
+      tone: (tone || '') as any,
       topic: '',
       mediaItems: [],
       publishingOption: publishingOption as any,
@@ -169,9 +171,33 @@ export default function CreatePostView({
       });
       return;
     }
+    if (targetPlatforms.length === 0) {
+      toast({
+        title: 'Error',
+        description: 'Please select at least one platform',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!contentType) {
+      toast({
+        title: 'Error',
+        description: 'Please select a content type',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!tone) {
+      toast({
+        title: 'Error',
+        description: 'Please select a tone',
+        variant: 'destructive',
+      });
+      return;
+    }
     setBusy(true);
     try {
-      // Pre-check AI quota
+      // Pre-check AI quota for multiple platforms
       try {
         const quota = await client.quota.status();
         // Enforce BYOK requirement on Free tier
@@ -197,7 +223,13 @@ export default function CreatePostView({
           if (!hasBYOK)
             throw new Error('AI generation is not available on your plan');
         }
-        if (ai && ai.limit !== -1 && ai.used + 1 > ai.limit) {
+        // Check quota for multiple platforms (skip if BYOK is present)
+        if (
+          !hasBYOK &&
+          ai &&
+          ai.limit !== -1 &&
+          ai.used + targetPlatforms.length > ai.limit
+        ) {
           throw new Error('Daily AI limit reached');
         }
       } catch (e: any) {
@@ -222,18 +254,50 @@ export default function CreatePostView({
           };
         }
       } catch {}
-      const data = await client.posts.compose({
-        prompt: topic,
-        tone,
-        platform: targetPlatform as any,
-        contentType: contentType as any,
-        aiConfig,
+
+      // Generate content for each selected platform
+      const newBundle: Bundle = {};
+
+      for (const platform of targetPlatforms) {
+        try {
+          const data = await client.posts.compose({
+            prompt: topic,
+            tone,
+            platform: platform as any,
+            contentType: contentType as any,
+            aiConfig,
+          });
+
+          // Merge the response into the bundle
+          if (data && typeof data === 'object') {
+            Object.assign(newBundle, data);
+          } else {
+            // If response is just a string, use the platform as key
+            newBundle[platform] = data as any;
+          }
+        } catch (e: any) {
+          // If one platform fails, continue with others
+          console.error(`Failed to generate content for ${platform}:`, e);
+          // Add error placeholder for this platform
+          newBundle[platform] =
+            `Failed to generate content for ${platform}. Please try again.`;
+        }
+      }
+
+      setBundle(newBundle);
+      // Initialize empty media arrays for each platform
+      const initialMedia: Record<string, any[]> = {};
+      Object.keys(newBundle).forEach(platform => {
+        initialMedia[platform] = [];
       });
-      setBundle(data as any);
+      setPlatformMedia(initialMedia);
       await queryClient.invalidateQueries({ queryKey: ['quota', 'status'] });
+
+      const successCount = Object.keys(newBundle).length;
+      const platformList = targetPlatforms.map(p => p.toUpperCase()).join(', ');
       toast({
         title: 'Success',
-        description: `Content generated for ${targetPlatform.toUpperCase()}!`,
+        description: `Content generated for ${successCount} ${successCount === 1 ? 'platform' : 'platforms'}: ${platformList}!`,
       });
     } catch (e: any) {
       const errMessage =
@@ -322,6 +386,104 @@ export default function CreatePostView({
       setUploading(false);
       setBusy(false);
     }
+  }
+
+  async function handlePlatformMediaUpload(
+    platform: string,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'video/mp4',
+      'video/mov',
+      'video/avi',
+      'video/quicktime',
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: 'Error',
+        description:
+          'Please upload an image (JPEG, PNG, GIF, WebP) or video (MP4, MOV, AVI)',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setBusy(true);
+    setUploading(true);
+    try {
+      const key = `${Date.now()}-${file.name}`;
+      const presign = await client.posts.presignUpload({ key });
+      const uploadUrl = (presign as any).presignedUrl as string | undefined;
+      if (!uploadUrl) throw new Error('Failed to get presigned URL');
+
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      });
+      if (!uploadRes.ok) throw new Error('Upload failed');
+
+      const publicUrl = (presign as any).publicUrl || key;
+      const mediaItem = {
+        url: publicUrl,
+        type: file.type.startsWith('video/') ? 'video' : 'image',
+        filename: file.name,
+        size: file.size,
+      };
+
+      setPlatformMedia(prev => ({
+        ...prev,
+        [platform]: [...(prev[platform] || []), mediaItem],
+      }));
+
+      toast({
+        title: 'Success',
+        description: file.type.startsWith('video/')
+          ? 'Video uploaded successfully!'
+          : 'Image uploaded successfully!',
+      });
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to upload media',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploading(false);
+      setBusy(false);
+    }
+  }
+
+  function handleUseSameMediaAsFirst(platform: string) {
+    if (!bundle) return;
+    const platforms = Object.keys(bundle);
+    if (platforms.length === 0) return;
+    const firstPlatform = platforms[0];
+    const firstPlatformMedia = platformMedia[firstPlatform] || [];
+
+    setPlatformMedia(prev => ({
+      ...prev,
+      [platform]: [...firstPlatformMedia],
+    }));
+
+    toast({
+      title: 'Media copied',
+      description: `Using same media as ${firstPlatform}`,
+    });
+  }
+
+  function handleRemovePlatformMedia(platform: string, index: number) {
+    setPlatformMedia(prev => ({
+      ...prev,
+      [platform]: (prev[platform] || []).filter((_, i) => i !== index),
+    }));
   }
 
   async function handleGenerateImage() {
@@ -436,7 +598,7 @@ export default function CreatePostView({
     const values: CreatePostFormValues = {
       profileId: selectedProfileId,
       accounts: selectedAccountIds,
-      platform: targetPlatform as any,
+      platform: targetPlatforms[0] as any,
       contentType: contentType as any,
       tone: tone as any,
       topic,
@@ -460,18 +622,23 @@ export default function CreatePostView({
       return;
     }
 
-    // Validate media requirements for Instagram before proceeding
+    // Validate media requirements per platform
     const selectedPlatforms = selectedAccountIds
       .map(id => accounts.find(a => a.id === id)?.platform?.toLowerCase())
       .filter(Boolean) as string[];
-    if (selectedPlatforms.includes('instagram') && uploadedMedia.length === 0) {
-      toast({
-        title: 'Instagram requires media',
-        description:
-          'Please upload at least one image or video to post on Instagram.',
-        variant: 'destructive',
-      });
-      return;
+
+    for (const platform of selectedPlatforms) {
+      if (platform === 'instagram') {
+        const platformMediaItems = platformMedia[platform] || [];
+        if (platformMediaItems.length === 0) {
+          toast({
+            title: 'Instagram requires media',
+            description: `Please upload at least one image or video for Instagram (${platform}).`,
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
     }
 
     setBusy(true);
@@ -486,11 +653,15 @@ export default function CreatePostView({
         scheduledFor = `${scheduledDate}T${scheduledTime}`;
       }
 
+      // Aggregate all media items (API expects a single array for now)
+      // TODO: Update API to support per-platform media
+      const allMediaItems = Object.values(platformMedia).flat();
+
       const result = await client.posts.createOrSchedulePost({
         profileId: selectedProfileId,
         platforms,
         content: bundle,
-        mediaItems: uploadedMedia,
+        mediaItems: allMediaItems.length > 0 ? allMediaItems : uploadedMedia,
         publishingOption: publishingOption as any,
         scheduledFor,
         timezone,
@@ -507,6 +678,7 @@ export default function CreatePostView({
         setTopic('');
         setImageFile(null);
         setUploadedMedia([]);
+        setPlatformMedia({});
         setGeneratedImageUrl(null);
         setMediaPrompt('');
         setScheduledDate('');
@@ -529,39 +701,35 @@ export default function CreatePostView({
     <div className="container mx-auto p-2">
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-2 space-y-6">
-          {/* Content Generation */}
-          <ComposerSection
-            targetPlatform={targetPlatform}
-            setTargetPlatform={setTargetPlatform}
-            contentType={contentType}
-            setContentType={setContentType}
-            topic={topic}
-            setTopic={setTopic}
-            tone={tone}
-            setTone={setTone}
-            onGenerate={handleGenerate}
-            busy={busy}
-          />
+          {/* Content Generation - Only show when no bundle exists */}
+          {!bundle && (
+            <ComposerSection
+              targetPlatforms={targetPlatforms}
+              setTargetPlatforms={setTargetPlatforms}
+              contentType={contentType}
+              setContentType={setContentType}
+              topic={topic}
+              setTopic={setTopic}
+              tone={tone}
+              setTone={setTone}
+              onGenerate={handleGenerate}
+              busy={busy}
+            />
+          )}
 
-          {/* Generated Content Preview */}
+          {/* Generated Content Preview with per-platform media upload */}
           {bundle && (
             <GeneratedPreview
               bundle={bundle as any}
               onEdit={handleEditGenerated}
+              platformMedia={platformMedia}
+              onPlatformMediaUpload={handlePlatformMediaUpload}
+              onUseSameMediaAsFirst={handleUseSameMediaAsFirst}
+              onRemovePlatformMedia={handleRemovePlatformMedia}
+              busy={busy}
+              uploading={uploading}
             />
           )}
-
-          {/* Media Upload */}
-          <MediaSection
-            busy={busy}
-            uploading={uploading}
-            imageFile={imageFile}
-            generatedImageUrl={generatedImageUrl}
-            mediaPrompt={mediaPrompt}
-            setMediaPrompt={setMediaPrompt}
-            onUpload={handleImageUpload}
-            onGenerateImage={handleGenerateImage}
-          />
         </div>
 
         <div className="xl:col-span-1 self-start">
