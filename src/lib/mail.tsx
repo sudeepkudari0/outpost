@@ -4,7 +4,7 @@ import { Resend } from 'resend';
 
 const resendClient = new Resend(process.env.RESEND_API_KEY);
 
-const fromEmail = 'Legal ThinkRoman <admin@mail.thinkroman.com>';
+const fromEmail = 'PostIt <admin@mail.thinkroman.com>';
 const replyTo = 'admin@mail.thinkroman.com';
 
 export const sendMagicLinkEmail = async (
@@ -13,11 +13,11 @@ export const sendMagicLinkEmail = async (
   magicLink: string
 ) => {
   try {
-    const appName = 'Legal ThinkRoman';
+    const appName = 'PostIt';
 
     const logoUrl = process.env.NEXT_PUBLIC_BASE_URL
-      ? `${process.env.NEXT_PUBLIC_BASE_URL}/images/legal-mail.jpeg`
-      : 'https://kooldhar.thinkroman.com/images/legal-mail.jpeg';
+      ? `${process.env.NEXT_PUBLIC_BASE_URL}/images/postit-logo.png`
+      : 'https://kooldhar.thinkroman.com/images/postit-logo.png';
 
     await resendClient.emails.send({
       from: fromEmail,
@@ -179,10 +179,10 @@ export const sendTeamInviteEmail = async (
   profileNames?: string[]
 ) => {
   try {
-    const appName = 'Legal ThinkRoman';
+    const appName = 'PostIt';
     const logoUrl = process.env.NEXT_PUBLIC_BASE_URL
-      ? `${process.env.NEXT_PUBLIC_BASE_URL}/images/legal-mail.jpeg`
-      : 'https://kooldhar.thinkroman.com/images/legal-mail.jpeg';
+      ? `${process.env.NEXT_PUBLIC_BASE_URL}/images/postit-logo.png`
+      : 'https://kooldhar.thinkroman.com/images/postit-logo.png';
 
     const profilesList =
       profileNames && profileNames.length
