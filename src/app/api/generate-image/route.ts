@@ -1,10 +1,11 @@
-import { type NextRequest, NextResponse } from 'next/server';
-import { generateImage } from '@/lib/generate-image';
+import { auth } from '@/auth';
+import { generateImage as generateAiImage } from '@/lib/ai';
 import { getPresignedUrl } from '@/lib/storage';
+import { type NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { prompt } = await request.json();
+    const { prompt, aiConfig } = await request.json();
 
     if (!prompt) {
       return NextResponse.json(
@@ -13,7 +14,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const imageUrl = await generateImage(prompt);
+    const session = await auth();
+    const userId = session?.user?.id;
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const imageUrl = await generateAiImage({ userId, prompt, aiConfig });
     // Fetch the generated image bytes server-side
     const imageRes = await fetch(imageUrl);
     if (!imageRes.ok) {

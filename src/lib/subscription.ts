@@ -11,6 +11,9 @@ export const TIER_LIMITS = {
     maxPostsPerDay: 10,
     maxPostsPerMonth: 300,
     maxConnectedAccounts: 4, // 2 profiles x 2 accounts each
+    // AI limits (FREE: no AI generation)
+    maxAiGenerationsPerDay: 0,
+    maxAiGenerationsPerMonth: 0,
     features: [
       'basic_posting',
       'basic_scheduling',
@@ -26,6 +29,9 @@ export const TIER_LIMITS = {
     maxPostsPerDay: 100,
     maxPostsPerMonth: 3000,
     maxConnectedAccounts: 20,
+    // AI limits
+    maxAiGenerationsPerDay: 50,
+    maxAiGenerationsPerMonth: 1000,
     features: [
       'basic_posting',
       'basic_scheduling',
@@ -42,6 +48,9 @@ export const TIER_LIMITS = {
     maxPostsPerDay: 500,
     maxPostsPerMonth: 15000,
     maxConnectedAccounts: 100,
+    // AI limits
+    maxAiGenerationsPerDay: 500,
+    maxAiGenerationsPerMonth: 10000,
     features: [
       'basic_posting',
       'basic_scheduling',
@@ -61,6 +70,9 @@ export const TIER_LIMITS = {
     maxPostsPerDay: -1, // Unlimited
     maxPostsPerMonth: -1, // Unlimited
     maxConnectedAccounts: -1, // Unlimited
+    // AI limits (unlimited)
+    maxAiGenerationsPerDay: -1,
+    maxAiGenerationsPerMonth: -1,
     features: [
       'everything',
       'dedicated_support',
@@ -77,6 +89,8 @@ export interface TierLimits {
   maxPostsPerDay: number;
   maxPostsPerMonth: number;
   maxConnectedAccounts: number;
+  maxAiGenerationsPerDay: number;
+  maxAiGenerationsPerMonth: number;
   features: readonly string[];
 }
 

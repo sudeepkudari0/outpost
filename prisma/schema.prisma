@@ -82,12 +82,15 @@ model Usage {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Daily counters (reset every day)
-  postsToday        Int      @default(0)
-  lastPostResetDate DateTime @default(now())
+  postsToday         Int      @default(0)
+  lastPostResetDate  DateTime @default(now())
+  aiGenerationsToday Int      @default(0)
+  lastAiResetDate    DateTime @default(now())
 
   // Monthly counters
-  postsThisMonth Int      @default(0)
-  lastMonthReset DateTime @default(now())
+  postsThisMonth         Int      @default(0)
+  lastMonthReset         DateTime @default(now())
+  aiGenerationsThisMonth Int      @default(0)
 
   // Profile count
   profileCount Int @default(0)

@@ -1,6 +1,8 @@
 // Scheduling handled via Vercel Cron runner; no external cron client
-import { generateImage as generateDalleImage } from '@/lib/generate-image';
-import { openai } from '@/lib/openai';
+import {
+  generateImage as generateAiImage,
+  generateText as generateAiText,
+} from '@/lib/ai';
 import { getPublisher } from '@/lib/social-publishers/publishers';
 import { PublishRequest } from '@/lib/social-publishers/types';
 import { getPresignedUrl } from '@/lib/storage';
@@ -102,10 +104,18 @@ export const postsRouter = {
             'trending',
           ])
           .default('promotional'),
+        aiConfig: z
+          .object({
+            useUserKey: z.boolean().optional(),
+            provider: z.enum(['openai', 'gemini']).optional(),
+            apiKey: z.string().optional(),
+          })
+          .optional(),
       })
     )
     .output(z.record(z.any()))
-    .handler(async ({ input }) => {
+    .handler(async ({ input, context }) => {
+      const { user } = context as { user: { id: string } };
       // Helper to strip common markdown and fix hashtag formats in generated text
       function sanitizeText(text: string): string {
         if (!text) return text;
@@ -174,24 +184,19 @@ export const postsRouter = {
           'Reference current events, use trending hashtags, tap into viral topics, and stay culturally relevant.',
       };
 
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a social media content creator specializing in ${input.platform.toUpperCase()}. Generate ${input.contentType} content optimized specifically for ${input.platform} with a ${input.tone} tone.\n\nPlatform Guidelines for ${input.platform}: ${
-              platformGuidelines[input.platform]
-            }\n\nContent Type Guidelines for ${input.contentType}: ${
-              contentTypeGuidelines[input.contentType]
-            }\n\nCRITICAL FORMAT RULES:\n- Use plain text only. Do NOT use any markdown (no **bold**, no headings with #, no bullet symbols like -, *, •).\n- Do NOT include bracketed placeholders like [Product Name] or [Discount Offer]; replace with concrete, generic wording.\n- If you include hashtags, format them as #Word with spaces between each hashtag. Do NOT use 'hashtag#Word'.\n- Keep links as plain text or generic CTAs without markdown.\n\nReturn JSON with a single key "${input.platform}" containing only the plain-text content for this platform.`,
-          },
-          { role: 'user', content: input.prompt },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.7,
-      });
+      const systemPrompt = `You are a social media content creator specializing in ${input.platform.toUpperCase()}. Generate ${input.contentType} content optimized specifically for ${input.platform} with a ${input.tone} tone.\n\nPlatform Guidelines for ${input.platform}: ${
+        platformGuidelines[input.platform]
+      }\n\nContent Type Guidelines for ${input.contentType}: ${
+        contentTypeGuidelines[input.contentType]
+      }\n\nCRITICAL FORMAT RULES:\n- Use plain text only. Do NOT use any markdown (no **bold**, no headings with #, no bullet symbols like -, *, •).\n- Do NOT include bracketed placeholders like [Product Name] or [Discount Offer]; replace with concrete, generic wording.\n- If you include hashtags, format them as #Word with spaces between each hashtag. Do NOT use 'hashtag#Word'.\n- Keep links as plain text or generic CTAs without markdown.\n\nReturn JSON with a single key "${input.platform}" containing only the plain-text content for this platform.`;
 
-      const content = completion.choices[0]?.message?.content;
+      const content = await generateAiText({
+        userId: user.id,
+        systemPrompt,
+        prompt: input.prompt,
+        json: true,
+        aiConfig: input.aiConfig,
+      });
       if (!content) {
         throw new ORPCError('INTERNAL_SERVER_ERROR', {
           message: 'No content generated',
@@ -215,11 +220,27 @@ export const postsRouter = {
       summary: 'Generate an image and upload to storage',
       tags: ['Posts'],
     })
-    .input(z.object({ prompt: z.string().min(1) }))
+    .input(
+      z.object({
+        prompt: z.string().min(1),
+        aiConfig: z
+          .object({
+            useUserKey: z.boolean().optional(),
+            provider: z.enum(['openai', 'gemini']).optional(),
+            apiKey: z.string().optional(),
+          })
+          .optional(),
+      })
+    )
     .output(z.object({ imageUrl: z.string() }))
-    .handler(async ({ input }) => {
+    .handler(async ({ input, context }) => {
+      const { user } = context as { user: { id: string } };
       // Generate remote image
-      const imageUrl = await generateDalleImage(input.prompt);
+      const imageUrl = await generateAiImage({
+        userId: user.id,
+        prompt: input.prompt,
+        aiConfig: input.aiConfig,
+      });
 
       // Download bytes server-side
       const res = await fetch(imageUrl);

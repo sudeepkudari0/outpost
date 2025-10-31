@@ -22,7 +22,7 @@ import {
   EyeOff,
   Save,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 type AppKey = {
   id: string;
@@ -52,6 +52,28 @@ export default function ApiKeysClient(props: {
   const [appKeys, setAppKeys] = useState<AppKey[]>(props.appKeys || []);
   const [issuing, setIssuing] = useState(false);
   const [newKey, setNewKey] = useState<string | null>(null);
+
+  // BYOK local settings
+  const [useUserKey, setUseUserKey] = useState<boolean>(false);
+  const [provider, setProvider] = useState<'openai' | 'gemini'>('openai');
+  const [userApiKey, setUserApiKey] = useState<string>('');
+  const [verifying, setVerifying] = useState(false);
+  const [verified, setVerified] = useState<boolean | null>(null);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('aiSettings');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed.useUserKey === 'boolean')
+          setUseUserKey(parsed.useUserKey);
+        if (parsed.provider === 'openai' || parsed.provider === 'gemini')
+          setProvider(parsed.provider);
+        if (typeof parsed.key === 'string') setUserApiKey(parsed.key);
+      }
+    } catch {}
+  }, []);
 
   const reloadAppKeys = async () => {
     try {
@@ -109,6 +131,43 @@ export default function ApiKeysClient(props: {
     }
   };
 
+  const verifyAndSaveBYOK = async () => {
+    setVerifying(true);
+    setVerified(null);
+    try {
+      const res = await client.apikeys.verifyAiKey({
+        provider,
+        apiKey: userApiKey,
+      });
+      setVerified(res.valid);
+      if (res.valid) {
+        localStorage.setItem(
+          'aiSettings',
+          JSON.stringify({ useUserKey, provider, key: userApiKey })
+        );
+        toast({
+          title: 'Saved',
+          description: 'Your AI provider settings are saved in this browser.',
+        });
+      } else {
+        toast({
+          title: 'Invalid key',
+          description: res.error || 'Please check your key',
+          variant: 'destructive',
+        });
+      }
+    } catch (e: any) {
+      setVerified(false);
+      toast({
+        title: 'Verification failed',
+        description: e?.message || 'Unable to verify key',
+        variant: 'destructive',
+      });
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   const revokeAppKey = async (id: string) => {
     try {
       const res = await client.apikeys.revoke({ id });
@@ -157,6 +216,86 @@ export default function ApiKeysClient(props: {
       )}
 
       <div className="grid gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>BYOK: Bring Your Own AI Key</CardTitle>
+            <CardDescription>
+              Use your own OpenAI or Gemini API key. Keys are stored only in
+              this browser.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="use-user-key">Use my key</Label>
+              <Button
+                variant={useUserKey ? 'default' : 'outline'}
+                onClick={() => setUseUserKey(!useUserKey)}
+              >
+                {useUserKey ? 'Enabled' : 'Disabled'}
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Provider</Label>
+              <div className="flex gap-2">
+                <Button
+                  variant={provider === 'openai' ? 'default' : 'outline'}
+                  onClick={() => setProvider('openai')}
+                >
+                  OpenAI
+                </Button>
+                <Button
+                  variant={provider === 'gemini' ? 'default' : 'outline'}
+                  onClick={() => setProvider('gemini')}
+                >
+                  Gemini
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="user-api-key">API Key</Label>
+              <Input
+                id="user-api-key"
+                type="password"
+                placeholder={provider === 'openai' ? 'sk-...' : 'AIza...'}
+                value={userApiKey}
+                onChange={e => setUserApiKey(e.target.value)}
+              />
+              {verified !== null && (
+                <p
+                  className={
+                    verified ? 'text-green-600 text-sm' : 'text-red-600 text-sm'
+                  }
+                >
+                  {verified ? 'Key verified' : 'Key invalid'}
+                </p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  localStorage.removeItem('aiSettings');
+                  setVerified(null);
+                  toast({
+                    title: 'Cleared',
+                    description: 'Removed saved AI settings from this browser.',
+                  });
+                }}
+              >
+                Clear
+              </Button>
+              <Button
+                onClick={verifyAndSaveBYOK}
+                disabled={!userApiKey || verifying}
+              >
+                {verifying ? 'Verifying...' : 'Verify & Save'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader>
             <CardTitle>OpenAI Configuration</CardTitle>

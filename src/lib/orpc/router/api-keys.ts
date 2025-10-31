@@ -1,3 +1,5 @@
+import { generateTextWithGemini } from '@/lib/ai/providers/gemini';
+import { generateTextWithOpenAI } from '@/lib/ai/providers/openai';
 import { prisma } from '@/lib/db';
 import {
   generateApiKey,
@@ -127,5 +129,60 @@ export const apiKeysRouter = {
       const missing: string[] = [];
       if (!process.env.OPENAI_API_KEY) missing.push('OpenAI API Key');
       return { validation: missing.length === 0, missing };
+    }),
+
+  verifyAiKey: authed
+    .route({
+      method: 'POST',
+      path: '/apikeys/ai/verify',
+      summary: 'Verify user-provided AI key (BYOK) without storing it',
+      tags: ['ApiKeys'],
+    })
+    .input(
+      z.object({
+        provider: z.enum(['openai', 'gemini']),
+        apiKey: z.string().min(8),
+      })
+    )
+    .output(
+      z.object({
+        valid: z.boolean(),
+        provider: z.string(),
+        error: z.string().optional(),
+      })
+    )
+    .handler(async ({ input }) => {
+      try {
+        const trivialPrompt = 'Reply with OK';
+        if (input.provider === 'openai') {
+          const res = await generateTextWithOpenAI({
+            apiKey: input.apiKey,
+            systemPrompt: 'Validation',
+            prompt: trivialPrompt,
+            json: false,
+          });
+          return {
+            valid: typeof res === 'string' && res.length > 0,
+            provider: input.provider,
+          };
+        } else {
+          const res = await generateTextWithGemini({
+            apiKey: input.apiKey,
+            systemPrompt: 'Validation',
+            prompt: trivialPrompt,
+            json: false,
+          });
+          return {
+            valid: typeof res === 'string' && res.length > 0,
+            provider: input.provider,
+          };
+        }
+      } catch (e: any) {
+        return {
+          valid: false,
+          provider: input.provider,
+          error: e?.message || 'Invalid key',
+        };
+      }
     }),
 };

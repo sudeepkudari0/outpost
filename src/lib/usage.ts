@@ -58,6 +58,25 @@ export async function getUserUsage(userId: string) {
       usage.lastPostResetDate = new Date();
     }
 
+    // Reset AI daily counter if it's a new day
+    const lastAiReset = new Date(
+      (usage as any).lastAiResetDate || usage.lastPostResetDate
+    );
+    lastAiReset.setHours(0, 0, 0, 0);
+
+    if (lastAiReset < today) {
+      await prisma.usage.update({
+        where: { userId },
+        data: {
+          aiGenerationsToday: 0,
+          lastAiResetDate: new Date(),
+        },
+      });
+
+      (usage as any).aiGenerationsToday = 0;
+      (usage as any).lastAiResetDate = new Date();
+    }
+
     // Reset monthly counter if it's a new month
     const currentMonth = new Date();
     currentMonth.setDate(1);
@@ -79,6 +98,19 @@ export async function getUserUsage(userId: string) {
 
       usage.postsThisMonth = 0;
       usage.lastMonthReset = new Date();
+    }
+
+    // Reset AI monthly counter if it's a new month (coincide with posts reset)
+    const aiMonthReset = lastMonthReset;
+    if (aiMonthReset < currentMonth) {
+      await prisma.usage.update({
+        where: { userId },
+        data: {
+          aiGenerationsThisMonth: 0,
+        },
+      });
+
+      (usage as any).aiGenerationsThisMonth = 0;
     }
 
     return usage;
@@ -115,6 +147,32 @@ export async function incrementPostCount(userId: string) {
   } catch (error) {
     console.error('[Usage] Error incrementing post count:', error);
     throw new Error('Failed to increment post count');
+  }
+}
+
+/**
+ * Increment AI generation usage. Weight is the number of units to consume
+ * (text=1, image=5 as specified)
+ */
+export async function incrementAiUsage(userId: string, weight: number = 1) {
+  try {
+    // Ensure counters are up to date
+    await getUserUsage(userId);
+
+    const usage = await prisma.usage.update({
+      where: { userId },
+      data: {
+        aiGenerationsToday: { increment: weight },
+        aiGenerationsThisMonth: { increment: weight },
+      },
+    });
+
+    await logUsageAction(userId, 'AI_GENERATION', { weight });
+
+    return usage;
+  } catch (error) {
+    console.error('[Usage] Error incrementing AI usage:', error);
+    throw new Error('Failed to increment AI usage');
   }
 }
 
@@ -212,6 +270,8 @@ export async function resetDailyUsage() {
       data: {
         postsToday: 0,
         lastPostResetDate: new Date(),
+        aiGenerationsToday: 0,
+        lastAiResetDate: new Date(),
       },
     });
 
@@ -243,6 +303,7 @@ export async function resetMonthlyUsage() {
       data: {
         postsThisMonth: 0,
         lastMonthReset: new Date(),
+        aiGenerationsThisMonth: 0,
       },
     });
 

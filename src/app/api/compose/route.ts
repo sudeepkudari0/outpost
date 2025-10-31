@@ -1,5 +1,6 @@
+import { auth } from '@/auth';
+import { generateText as generateAiText } from '@/lib/ai';
 import { type NextRequest, NextResponse } from 'next/server';
-import { openai } from '@/lib/openai';
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,6 +9,7 @@ export async function POST(request: NextRequest) {
       tone = 'professional',
       platform = 'instagram',
       contentType = 'promotional',
+      aiConfig,
     } = await request.json();
 
     if (!prompt) {
@@ -49,35 +51,31 @@ export async function POST(request: NextRequest) {
         'Reference current events, use trending hashtags, tap into viral topics, and stay culturally relevant.',
     };
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: `You are a social media content creator specializing in ${platform.toUpperCase()}. Generate ${contentType} content optimized specifically for ${platform} with a ${tone} tone. 
+    const session = await auth();
+    const userId = session?.user?.id;
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const systemPrompt = `You are a social media content creator specializing in ${platform.toUpperCase()}. Generate ${contentType} content optimized specifically for ${platform} with a ${tone} tone. 
 
 Platform Guidelines for ${platform}: ${
-            platformGuidelines[platform as keyof typeof platformGuidelines]
-          }
+      platformGuidelines[platform as keyof typeof platformGuidelines]
+    }
 
 Content Type Guidelines for ${contentType}: ${
-            contentTypeGuidelines[
-              contentType as keyof typeof contentTypeGuidelines
-            ]
-          }
+      contentTypeGuidelines[contentType as keyof typeof contentTypeGuidelines]
+    }
 
-Return JSON with a single key "${platform}" containing the optimized content for this platform only. Make sure the content aligns with both the platform requirements and the content type strategy.`,
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.7,
+Return JSON with a single key "${platform}" containing the optimized content for this platform only. Make sure the content aligns with both the platform requirements and the content type strategy.`;
+
+    const content = await generateAiText({
+      userId,
+      systemPrompt,
+      prompt,
+      json: true,
+      aiConfig,
     });
-
-    const content = completion.choices[0]?.message?.content;
     if (!content) {
       return NextResponse.json(
         { error: 'No content generated' },
@@ -85,8 +83,13 @@ Return JSON with a single key "${platform}" containing the optimized content for
       );
     }
 
-    const parsedContent = JSON.parse(content);
-    return NextResponse.json(parsedContent);
+    let parsed: any;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      parsed = { [platform]: content } as any;
+    }
+    return NextResponse.json(parsed);
   } catch (error) {
     console.error('Compose error:', error);
     return NextResponse.json(

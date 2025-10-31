@@ -185,6 +185,22 @@ function QuotaWidget() {
         />
       </div>
 
+      {/* AI Usage */}
+      <div className="space-y-1.5 mt-3">
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground">AI units today</span>
+          <span className="tabular-nums">
+            {isLoading
+              ? '—'
+              : `${(data as any)?.ai?.daily?.used ?? 0}/${(data as any)?.ai?.daily?.limit ?? 0}`}
+          </span>
+        </div>
+        <Progress
+          value={isLoading ? 0 : ((data as any)?.ai?.daily?.percentage ?? 0)}
+          className="h-1.5"
+        />
+      </div>
+
       {!isCollapsed && (
         <p className="mt-3 text-[11px] text-muted-foreground">
           Need more? Upgrade for higher limits and advanced features.

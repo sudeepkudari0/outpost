@@ -170,21 +170,83 @@ export default function CreatePostView({
     }
     setBusy(true);
     try {
+      // Pre-check AI quota
+      try {
+        const quota = await client.quota.status();
+        // Enforce BYOK requirement on Free tier
+        const tier = (quota as any)?.tier;
+        let localAi: any = undefined;
+        try {
+          const raw = localStorage.getItem('aiSettings');
+          localAi = raw ? JSON.parse(raw) : undefined;
+        } catch {}
+        const hasBYOK = !!localAi?.key;
+        if (tier === 'FREE' && !hasBYOK) {
+          toast({
+            title: 'AI unavailable on Free',
+            description:
+              'Add your own OpenAI or Gemini API key in Dashboard → API Keys to generate content.',
+            variant: 'destructive',
+          });
+          return;
+        }
+        const ai = (quota as any)?.ai?.daily;
+        if (ai && ai.limit === 0) {
+          // If BYOK is present, allow; otherwise block
+          if (!hasBYOK)
+            throw new Error('AI generation is not available on your plan');
+        }
+        if (ai && ai.limit !== -1 && ai.used + 1 > ai.limit) {
+          throw new Error('Daily AI limit reached');
+        }
+      } catch (e: any) {
+        if (e?.message) {
+          toast({
+            title: 'Limit reached',
+            description: e.message,
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+      let aiConfig: any = undefined;
+      try {
+        const raw = localStorage.getItem('aiSettings');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          aiConfig = {
+            useUserKey: !!parsed.key,
+            provider: parsed.provider === 'gemini' ? 'gemini' : 'openai',
+            apiKey: parsed.key,
+          };
+        }
+      } catch {}
       const data = await client.posts.compose({
         prompt: topic,
         tone,
         platform: targetPlatform as any,
         contentType: contentType as any,
+        aiConfig,
       });
       setBundle(data as any);
       toast({
         title: 'Success',
         description: `Content generated for ${targetPlatform.toUpperCase()}!`,
       });
-    } catch {
+    } catch (e: any) {
+      const errMessage =
+        e?.message ||
+        e?.data?.message ||
+        e?.response?.data?.error ||
+        e?.response?.data?.message ||
+        'Failed to generate content';
+      const title =
+        e?.upgradeRequired || e?.data?.upgradeRequired
+          ? 'Upgrade required'
+          : 'Error';
       toast({
-        title: 'Error',
-        description: 'Failed to generate content',
+        title,
+        description: String(errMessage),
         variant: 'destructive',
       });
     } finally {
@@ -270,7 +332,62 @@ export default function CreatePostView({
     }
     setBusy(true);
     try {
-      const data = await client.posts.generateImage({ prompt: mediaPrompt });
+      // Pre-check AI quota (image counts as 5 units)
+      try {
+        const quota = await client.quota.status();
+        // Enforce BYOK requirement on Free tier
+        const tier = (quota as any)?.tier;
+        let localAi: any = undefined;
+        try {
+          const raw = localStorage.getItem('aiSettings');
+          localAi = raw ? JSON.parse(raw) : undefined;
+        } catch {}
+        const hasBYOK = !!localAi?.key;
+        if (tier === 'FREE' && !hasBYOK) {
+          toast({
+            title: 'AI unavailable on Free',
+            description:
+              'Add your own OpenAI or Gemini API key in Dashboard → API Keys to generate images.',
+            variant: 'destructive',
+          });
+          return;
+        }
+        const ai = (quota as any)?.ai?.daily;
+        if (ai && ai.limit === 0) {
+          if (!hasBYOK)
+            throw new Error(
+              'AI image generation is not available on your plan'
+            );
+        }
+        if (ai && ai.limit !== -1 && ai.used + 5 > ai.limit) {
+          throw new Error('Not enough AI units for image generation');
+        }
+      } catch (e: any) {
+        if (e?.message) {
+          toast({
+            title: 'Limit reached',
+            description: e.message,
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+      let aiConfig: any = undefined;
+      try {
+        const raw = localStorage.getItem('aiSettings');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          aiConfig = {
+            useUserKey: !!parsed.key,
+            provider: parsed.provider === 'gemini' ? 'gemini' : 'openai',
+            apiKey: parsed.key,
+          };
+        }
+      } catch {}
+      const data = await client.posts.generateImage({
+        prompt: mediaPrompt,
+        aiConfig,
+      });
       if ((data as any).imageUrl) {
         setGeneratedImageUrl((data as any).imageUrl);
         setUploadedMedia([
@@ -285,10 +402,20 @@ export default function CreatePostView({
           description: 'Image generated successfully!',
         });
       }
-    } catch {
+    } catch (e: any) {
+      const errMessage =
+        e?.message ||
+        e?.data?.message ||
+        e?.response?.data?.error ||
+        e?.response?.data?.message ||
+        'Failed to generate image';
+      const title =
+        e?.upgradeRequired || e?.data?.upgradeRequired
+          ? 'Upgrade required'
+          : 'Error';
       toast({
-        title: 'Error',
-        description: 'Failed to generate image',
+        title,
+        description: String(errMessage),
         variant: 'destructive',
       });
     } finally {
@@ -391,13 +518,6 @@ export default function CreatePostView({
 
   return (
     <div className="container mx-auto p-2">
-      <div className="mb-4">
-        <h1 className="md:text-3xl text-2xl font-bold">Create Post</h1>
-        <p className="md:text-base text-sm text-muted-foreground">
-          Generate and publish content across your social media platforms
-        </p>
-      </div>
-
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-2 space-y-6">
           {/* Content Generation */}
