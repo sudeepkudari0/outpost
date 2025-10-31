@@ -125,6 +125,9 @@ export default function ConnectionsView({
   >(null);
   const [creatingProfile, setCreatingProfile] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareEmail, setShareEmail] = useState('');
+  const [shareSubmitting, setShareSubmitting] = useState(false);
 
   const initializePlatforms = (): Platform[] => [
     // {
@@ -216,6 +219,47 @@ export default function ConnectionsView({
       return selectedProfile ? flat : undefined;
     })(),
   });
+
+  const sharesQuery = useQuery({
+    queryKey: ['team', 'shares'],
+    queryFn: () => client.team.listShares(),
+    staleTime: 10_000,
+  });
+
+  const membersForSelected = useMemo(() => {
+    const all = (sharesQuery.data as any[]) || [];
+    return all.filter(s => s.profileId === selectedProfile);
+  }, [sharesQuery.data, selectedProfile]);
+
+  async function handleShare() {
+    if (!selectedProfile || !shareEmail) return;
+    setShareSubmitting(true);
+    try {
+      const res = await client.team.shareProfiles({
+        email: shareEmail,
+        profileIds: [selectedProfile],
+      });
+      if (res.inviteUrl) {
+        await navigator.clipboard.writeText(res.inviteUrl);
+        toast({
+          title: 'Invite created',
+          description: 'Invite link copied to clipboard',
+        });
+      } else {
+        toast({ title: 'Access granted' });
+        sharesQuery.refetch();
+      }
+      setShareOpen(false);
+      setShareEmail('');
+    } catch (e: any) {
+      toast({
+        title: 'Unable to share',
+        description: e?.message || 'Please try again',
+      });
+    } finally {
+      setShareSubmitting(false);
+    }
+  }
 
   const platforms = useMemo(() => {
     const base = initializePlatforms();

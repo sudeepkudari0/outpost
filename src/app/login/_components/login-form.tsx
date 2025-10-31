@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
+import Link from 'next/link';
 
 type LoginValues = z.infer<typeof LoginSchema>;
 
@@ -184,12 +185,12 @@ export const LoginForm = ({ callbackUrl }: { callbackUrl: string }) => {
 
           <p className="text-center text-sm text-muted-foreground mt-6">
             Don't have an account?{' '}
-            <a
-              href="/signup"
+            <Link
+              href={`/signup?callbackUrl=${callbackUrl}`}
               className="font-semibold text-primary hover:underline"
             >
               Sign up
-            </a>
+            </Link>
           </p>
         </div>
       </div>

@@ -328,6 +328,22 @@ export const postsRouter = {
         throw new ORPCError('UNAUTHORIZED', { message: 'Not authenticated' });
       }
 
+      // Ensure user can post to the selected profile: owner or shared
+      const ownsProfile = await prisma.socialProfile.findFirst({
+        where: { id: input.profileId, userId: user.id },
+        select: { id: true },
+      });
+      if (!ownsProfile) {
+        const hasShare = await (prisma as any).profileShare.findFirst({
+          where: { profileId: input.profileId, memberUserId: user.id },
+        });
+        if (!hasShare) {
+          throw new ORPCError('FORBIDDEN', {
+            message: 'You do not have access to this profile',
+          });
+        }
+      }
+
       // Map string platform to Prisma enum
       const toPlatformEnum = (value?: string): Platform => {
         const upper = (value || 'INSTAGRAM').toUpperCase();

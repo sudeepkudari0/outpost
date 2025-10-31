@@ -32,6 +32,7 @@ export function getDashboardSidebarNavigation(
           href: '/dashboard/connections',
           icon: 'LucideLink',
         },
+        { name: 'Team', href: '/dashboard/team', icon: 'Users' },
       ],
     },
     {

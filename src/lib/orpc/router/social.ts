@@ -221,12 +221,24 @@ export const socialRouter = {
         });
       }
 
-      const profiles = await prisma.socialProfile.findMany({
+      // Own profiles
+      const ownProfiles = await prisma.socialProfile.findMany({
         where: { userId: user.id },
         orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
       });
 
-      return profiles;
+      // Profiles shared to this user
+      const shares = await (prisma as any).profileShare.findMany({
+        where: { memberUserId: user.id },
+        include: { profile: true },
+      });
+      const sharedProfiles = shares.map((s: any) => s.profile);
+
+      // Merge unique profiles
+      const map = new Map<string, any>();
+      for (const p of ownProfiles) map.set(p.id, p);
+      for (const p of sharedProfiles) if (!map.has(p.id)) map.set(p.id, p);
+      return Array.from(map.values());
     }),
 
   /**
@@ -351,18 +363,19 @@ export const socialRouter = {
         });
       }
 
-      // Verify profile ownership
+      // Verify ownership or share
       const profile = await prisma.socialProfile.findFirst({
-        where: {
-          id: input.profileId,
-          userId: user.id,
-        },
+        where: { id: input.profileId, userId: user.id },
       });
-
       if (!profile) {
-        throw new ORPCError('NOT_FOUND', {
-          message: 'Profile not found',
+        const shared = await (prisma as any).profileShare.findFirst({
+          where: { profileId: input.profileId, memberUserId: user.id },
         });
+        if (!shared) {
+          throw new ORPCError('NOT_FOUND', {
+            message: 'Profile not found',
+          });
+        }
       }
 
       const accounts = await prisma.connectedAccount.findMany({

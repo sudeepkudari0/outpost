@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
+import Link from 'next/link';
 
 const SignupSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -28,7 +29,13 @@ const SignupSchema = z.object({
 
 type SignupValues = z.infer<typeof SignupSchema>;
 
-export const SignupForm = ({ error: inboundError }: { error?: string }) => {
+export const SignupForm = ({
+  error: inboundError,
+  callbackUrl,
+}: {
+  error?: string;
+  callbackUrl: string;
+}) => {
   const router = useRouter();
   const [error, setError] = useState<string | null>(
     inboundError === 'EMAIL_IN_USE_DIFFERENT_METHOD'
@@ -68,7 +75,7 @@ export const SignupForm = ({ error: inboundError }: { error?: string }) => {
         return;
       }
 
-      router.push('/dashboard');
+      router.push(callbackUrl ? callbackUrl : '/dashboard');
       router.refresh();
     } catch (e) {
       setError('Something went wrong. Please try again.');
@@ -210,12 +217,12 @@ export const SignupForm = ({ error: inboundError }: { error?: string }) => {
 
           <p className="text-center text-sm text-muted-foreground mt-6">
             Already have an account?{' '}
-            <a
-              href="/login"
+            <Link
+              href={`/login?callbackUrl=${callbackUrl}`}
               className="font-semibold text-primary hover:underline"
             >
               Log in
-            </a>
+            </Link>
           </p>
         </div>
       </div>

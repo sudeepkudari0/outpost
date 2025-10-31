@@ -31,6 +31,7 @@ export default auth(async req => {
     isAuthRoute ||
     isApiAuthRoute ||
     isRootRoute ||
+    nextUrl.pathname.startsWith('/invite/accept') ||
     nextUrl.pathname.startsWith('/privacy-policy') ||
     nextUrl.pathname.startsWith('/terms-of-use') ||
     nextUrl.pathname.startsWith('/data-deletion-policy');
