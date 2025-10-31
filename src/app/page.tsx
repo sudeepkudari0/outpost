@@ -1,3 +1,4 @@
+import { auth } from '@/auth';
 import { ComparisonSection } from '@/components/landing-page/comparison-section';
 import { DemoSection } from '@/components/landing-page/demo-section';
 import { FeaturesSection } from '@/components/landing-page/features-section';
@@ -8,11 +9,13 @@ import { PricingSection } from '@/components/landing-page/pricing-section';
 import { TestimonialsSection } from '@/components/landing-page/testimonials-section';
 import { Footer } from '@/components/layout/footer';
 import { LandingPageHeader } from '@/components/layout/header';
+import { User } from 'next-auth';
 
-export default function HomePage() {
+export default async function HomePage() {
+  const session = await auth();
   return (
     <main className="min-h-screen bg-background">
-      <LandingPageHeader />
+      <LandingPageHeader user={session?.user as User | null} />
       <HeroSection />
       <FeaturesSection />
       <HowItWorksSection />

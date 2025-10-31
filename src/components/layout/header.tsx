@@ -1,13 +1,15 @@
 'use client';
 
 import { ThemeToggle } from '@/components/theme-toggle';
+import { cn } from '@/lib/utils';
 import { User } from 'next-auth';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { buttonVariants } from '../ui/button';
 import { UserNav } from '../user-nav';
 
-export function LandingPageHeader() {
+export function LandingPageHeader({ user }: { user: User | null }) {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -25,6 +27,21 @@ export function LandingPageHeader() {
 
         <div className="flex items-center gap-4">
           <ThemeToggle />
+          {user ? (
+            <Link
+              href="/dashboard"
+              className={cn(buttonVariants({ variant: 'default' }))}
+            >
+              Dashboard
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className={cn(buttonVariants({ variant: 'default' }))}
+            >
+              Login
+            </Link>
+          )}
         </div>
       </div>
     </header>

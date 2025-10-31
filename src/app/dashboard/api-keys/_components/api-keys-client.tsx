@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { client } from '@/lib/orpc/client';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
   Check,
@@ -48,7 +49,7 @@ export default function ApiKeysClient(props: {
     missing: string[];
   } | null>(null);
   const { toast } = useToast();
-
+  const queryClient = useQueryClient();
   const [appKeys, setAppKeys] = useState<AppKey[]>(props.appKeys || []);
   const [issuing, setIssuing] = useState(false);
   const [newKey, setNewKey] = useState<string | null>(null);
@@ -97,6 +98,7 @@ export default function ApiKeysClient(props: {
           : 'Some required environment keys are missing.',
       });
       setTimeout(() => setSaved(false), 2000);
+      queryClient.invalidateQueries({ queryKey: ['quota', 'status'] });
     } catch (error) {
       toast({
         title: 'Error',

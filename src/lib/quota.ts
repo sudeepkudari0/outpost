@@ -477,6 +477,7 @@ export async function getQuotaStatus(userId: string) {
 
     const calculatePercentage = (used: number, limit: number) => {
       if (limit === -1) return 0; // Unlimited
+      if (limit <= 0) return 0; // Avoid NaN/Infinity when there is no quota
       return Math.min(Math.round((used / limit) * 100), 100);
     };
 

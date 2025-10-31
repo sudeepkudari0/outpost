@@ -1,5 +1,6 @@
 'use client';
 
+import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
   Sidebar,
@@ -33,6 +34,7 @@ import {
   Users,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 export function DashboardSidebar({
   navigation,
@@ -146,6 +148,26 @@ function QuotaWidget() {
 
   const isCollapsed = state === 'collapsed';
 
+  // Detect BYOK from localStorage (client-only)
+  const [hasBYOK, setHasBYOK] = useState(false);
+  const [byokProvider, setByokProvider] = useState<'openai' | 'gemini' | null>(
+    null
+  );
+  useEffect(() => {
+    try {
+      const raw =
+        typeof window !== 'undefined'
+          ? localStorage.getItem('aiSettings')
+          : null;
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const key = parsed?.key as string | undefined;
+      const provider = parsed?.provider === 'gemini' ? 'gemini' : 'openai';
+      setHasBYOK(!!key);
+      setByokProvider(!!key ? provider : null);
+    } catch {}
+  }, []);
+
   return (
     <div className="border border-slate-300 dark:border-slate-700 rounded-2xl p-3 bg-background/40">
       <div className="flex items-center justify-between mb-2">
@@ -197,18 +219,48 @@ function QuotaWidget() {
       <div className="space-y-1.5 mt-3">
         <div className="flex items-center justify-between text-xs">
           <span className="text-muted-foreground">AI units today</span>
-          <span className="tabular-nums">
+          <span className="tabular-nums flex items-center gap-1">
             {isLoading
               ? '—'
               : data?.tier === 'ENTERPRISE'
                 ? '∞'
-                : `${(data as any)?.ai?.daily?.used ?? 0}/${(data as any)?.ai?.daily?.limit ?? 0}`}
+                : hasBYOK
+                  ? '∞'
+                  : `${(data as any)?.ai?.daily?.used ?? 0}/${(data as any)?.ai?.daily?.limit ?? 0}`}
+            {!isCollapsed && hasBYOK && (
+              <Badge variant="secondary" className="h-4 text-[10px] px-1.5">
+                Using your key{byokProvider ? ` · ${byokProvider}` : ''}
+              </Badge>
+            )}
           </span>
         </div>
         <Progress
           value={isLoading ? 0 : ((data as any)?.ai?.daily?.percentage ?? 0)}
           className="h-1.5"
         />
+        {!isCollapsed &&
+          !hasBYOK &&
+          (() => {
+            const aiDaily = (data as any)?.ai?.daily;
+            const limit = aiDaily?.limit;
+            const used = aiDaily?.used;
+            const isFinitePlan = typeof limit === 'number' && limit !== -1;
+            const isAtOrOverLimit =
+              isFinitePlan && typeof used === 'number' && used >= limit;
+            if (!isAtOrOverLimit) return null;
+            return (
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-muted-foreground">
+                  Daily AI limit reached
+                </span>
+                <a href="/dashboard/api-keys" className="no-underline">
+                  <Badge className="h-4 text-[10px] px-1.5">
+                    Use your own key
+                  </Badge>
+                </a>
+              </div>
+            );
+          })()}
       </div>
 
       {!isCollapsed && (

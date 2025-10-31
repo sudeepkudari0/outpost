@@ -30,6 +30,7 @@ import {
 } from '@/schemas/post';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ConnectedAccount } from '@prisma/client';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -54,7 +55,7 @@ export default function CreatePostView({
   initialAccounts,
 }: CreatePostViewProps) {
   const { toast } = useToast();
-
+  const queryClient = useQueryClient();
   const [selectedProfileId, setSelectedProfileId] = useState<string>(
     initialSelectedProfile || ''
   );
@@ -229,6 +230,7 @@ export default function CreatePostView({
         aiConfig,
       });
       setBundle(data as any);
+      await queryClient.invalidateQueries({ queryKey: ['quota', 'status'] });
       toast({
         title: 'Success',
         description: `Content generated for ${targetPlatform.toUpperCase()}!`,
@@ -303,6 +305,7 @@ export default function CreatePostView({
           size: file.size,
         },
       ]);
+
       toast({
         title: 'Success',
         description: file.type.startsWith('video/')
@@ -397,6 +400,12 @@ export default function CreatePostView({
             filename: 'generated-image.png',
           },
         ]);
+        // Revalidate quota after image generation
+        try {
+          await queryClient.invalidateQueries({
+            queryKey: ['quota', 'status'],
+          });
+        } catch {}
         toast({
           title: 'Success',
           description: 'Image generated successfully!',
@@ -555,8 +564,8 @@ export default function CreatePostView({
           />
         </div>
 
-        <div className="xl:col-span-1">
-          <div className="xl:sticky xl:top-6 space-y-6">
+        <div className="xl:col-span-1 self-start">
+          <div className="sticky top-28 md:top-24 z-10 max-h-[calc(100dvh-6rem)] overflow-y-auto space-y-6">
             {/* Profile Selection + Connected Accounts */}
             <Card>
               <CardHeader>

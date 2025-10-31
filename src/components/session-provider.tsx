@@ -5,10 +5,16 @@ import { SessionProvider as NextAuthSessionProvider } from 'next-auth/react';
 import type { ReactNode } from 'react';
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const queryClient = new QueryClient();
+  // Keep a single QueryClient instance for the lifetime of the provider
+  const [queryClient] = (require('react') as typeof import('react')).useState(
+    () => new QueryClient()
+  );
   return (
     <NextAuthSessionProvider>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        {children}
+        {/* <ReactQueryDevtools initialIsOpen={false} position="bottom" /> */}
+      </QueryClientProvider>
     </NextAuthSessionProvider>
   );
 }
