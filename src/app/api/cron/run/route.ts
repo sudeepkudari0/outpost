@@ -73,10 +73,11 @@ export async function GET(_req: NextRequest) {
           const platformKey = account.platform.toLowerCase();
           let platformContent: any = post.content;
           if (typeof post.content === 'object' && post.content !== null) {
-            if (platformKey in (post.content as any)) {
-              platformContent = (post.content as any)[platformKey];
+            if (platformKey in post.content) {
+              platformContent =
+                post.content[platformKey as keyof typeof post.content];
             } else {
-              const vals = Object.values(post.content as any);
+              const vals = Object.values(post.content);
               if (vals.length > 0) platformContent = vals[0];
             }
           }

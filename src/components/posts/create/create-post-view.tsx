@@ -199,9 +199,9 @@ export default function CreatePostView({
     try {
       // Pre-check AI quota for multiple platforms
       try {
-        const quota = await client.quota.status();
+        const quota = await client.quota.status({});
         // Enforce BYOK requirement on Free tier
-        const tier = (quota as any)?.tier;
+        const tier = quota?.tier;
         let localAi: any = undefined;
         try {
           const raw = localStorage.getItem('aiSettings');
@@ -217,7 +217,7 @@ export default function CreatePostView({
           });
           return;
         }
-        const ai = (quota as any)?.ai?.daily;
+        const ai = quota?.ai?.daily;
         if (ai && ai.limit === 0) {
           // If BYOK is present, allow; otherwise block
           if (!hasBYOK)
@@ -273,7 +273,7 @@ export default function CreatePostView({
             Object.assign(newBundle, data);
           } else {
             // If response is just a string, use the platform as key
-            newBundle[platform] = data as any;
+            newBundle[platform] = data;
           }
         } catch (e: any) {
           // If one platform fails, continue with others
@@ -350,7 +350,7 @@ export default function CreatePostView({
     try {
       const key = `${Date.now()}-${file.name}`;
       const presign = await client.posts.presignUpload({ key });
-      const uploadUrl = (presign as any).presignedUrl as string | undefined;
+      const uploadUrl = presign?.presignedUrl as string | undefined;
       if (!uploadUrl) throw new Error('Failed to get presigned URL');
 
       const uploadRes = await fetch(uploadUrl, {
@@ -360,7 +360,7 @@ export default function CreatePostView({
       });
       if (!uploadRes.ok) throw new Error('Upload failed');
 
-      const publicUrl = (presign as any).publicUrl || key;
+      const publicUrl = presign?.publicUrl || key;
       setUploadedMedia([
         {
           url: publicUrl,
@@ -420,7 +420,7 @@ export default function CreatePostView({
     try {
       const key = `${Date.now()}-${file.name}`;
       const presign = await client.posts.presignUpload({ key });
-      const uploadUrl = (presign as any).presignedUrl as string | undefined;
+      const uploadUrl = presign?.presignedUrl as string | undefined;
       if (!uploadUrl) throw new Error('Failed to get presigned URL');
 
       const uploadRes = await fetch(uploadUrl, {
@@ -430,7 +430,7 @@ export default function CreatePostView({
       });
       if (!uploadRes.ok) throw new Error('Upload failed');
 
-      const publicUrl = (presign as any).publicUrl || key;
+      const publicUrl = presign?.publicUrl || key;
       const mediaItem = {
         url: publicUrl,
         type: file.type.startsWith('video/') ? 'video' : 'image',
@@ -499,9 +499,9 @@ export default function CreatePostView({
     try {
       // Pre-check AI quota (image counts as 5 units)
       try {
-        const quota = await client.quota.status();
+        const quota = await client.quota.status({});
         // Enforce BYOK requirement on Free tier
-        const tier = (quota as any)?.tier;
+        const tier = quota?.tier;
         let localAi: any = undefined;
         try {
           const raw = localStorage.getItem('aiSettings');
@@ -517,7 +517,7 @@ export default function CreatePostView({
           });
           return;
         }
-        const ai = (quota as any)?.ai?.daily;
+        const ai = quota?.ai?.daily;
         if (ai && ai.limit === 0) {
           if (!hasBYOK)
             throw new Error(
@@ -553,11 +553,11 @@ export default function CreatePostView({
         prompt: mediaPrompt,
         aiConfig,
       });
-      if ((data as any).imageUrl) {
-        setGeneratedImageUrl((data as any).imageUrl);
+      if (data.imageUrl) {
+        setGeneratedImageUrl(data.imageUrl);
         setUploadedMedia([
           {
-            url: (data as any).imageUrl,
+            url: data.imageUrl,
             type: 'image',
             filename: 'generated-image.png',
           },
@@ -607,13 +607,13 @@ export default function CreatePostView({
       scheduledDate,
       scheduledTime,
       timezone,
-      bundle: bundle as any,
+      bundle: bundle,
     };
 
     form.reset(values);
     const valid = await form.trigger();
     if (!valid) {
-      const firstError = Object.values(form.formState.errors)[0] as any;
+      const firstError = Object.values(form.formState.errors)[0];
       toast({
         title: 'Validation',
         description: String(firstError?.message || 'Please check the form'),
@@ -667,7 +667,7 @@ export default function CreatePostView({
         timezone,
       });
 
-      if ((result as any).success) {
+      if (result.success) {
         let message = 'Posts published successfully!';
         if (publishingOption === 'schedule')
           message = 'Posts scheduled successfully!';
@@ -720,7 +720,7 @@ export default function CreatePostView({
           {/* Generated Content Preview with per-platform media upload */}
           {bundle && (
             <GeneratedPreview
-              bundle={bundle as any}
+              bundle={bundle}
               onEdit={handleEditGenerated}
               platformMedia={platformMedia}
               onPlatformMediaUpload={handlePlatformMediaUpload}

@@ -16,7 +16,7 @@ export default async function DashboardPage() {
         ...u,
         createdAt: new Date(u.createdAt).toString(),
       })),
-    } as any;
+    };
     return <AdminDashboard stats={normalized} />;
   }
 
@@ -25,7 +25,7 @@ export default async function DashboardPage() {
   // Try to determine a default profile to load accounts for
   const profiles = await client.social['get-profiles']();
   const defaultProfileId =
-    profiles.find(p => (p as any).isDefault)?.id || profiles[0]?.id;
+    profiles.find(p => p.isDefault)?.id || profiles[0]?.id;
   const accounts = defaultProfileId
     ? await client.social['get-connected-accounts']({
         profileId: defaultProfileId,
@@ -39,15 +39,10 @@ export default async function DashboardPage() {
     scheduledFor: p.scheduledFor ? (p.scheduledFor as Date).toString() : null,
   }));
 
-  const normalizedAccounts = (accounts as any[]).map(a => ({
+  const normalizedAccounts = accounts.map(a => ({
     ...a,
     connectedAt: (a.connectedAt as Date).toString(),
   }));
 
-  return (
-    <DashboardClient
-      posts={posts as any}
-      accounts={normalizedAccounts as any}
-    />
-  );
+  return <DashboardClient posts={posts as any} accounts={normalizedAccounts} />;
 }

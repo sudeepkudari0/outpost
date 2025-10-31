@@ -18,7 +18,7 @@ export async function generateTextWithOpenAI(
     ],
     ...(json ? { response_format: { type: 'json_object' } } : {}),
     temperature: 0.7,
-  } as any;
+  };
 
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',

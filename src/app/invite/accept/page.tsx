@@ -17,7 +17,7 @@ export default async function AcceptInvitePage({
   const details = token
     ? await (async () => {
         const invite = await prisma.invite.findUnique({ where: { token } });
-        if (!invite) return { exists: false } as any;
+        if (!invite) return { exists: false };
         const expired = invite.expiresAt < new Date();
         const inviter = await prisma.user.findUnique({
           where: { id: invite.inviterId },
@@ -30,7 +30,7 @@ export default async function AcceptInvitePage({
           invite.profileIds.length
         ) {
           const profiles = await prisma.socialProfile.findMany({
-            where: { id: { in: invite.profileIds as any } },
+            where: { id: { in: invite.profileIds } },
             select: { id: true, name: true },
           });
           teamProfiles = profiles;
@@ -43,9 +43,9 @@ export default async function AcceptInvitePage({
           teamProfiles,
           planTier: invite.planTier ?? undefined,
           expired,
-        } as any;
+        };
       })()
-    : ({ exists: false } as any);
+    : { exists: false };
 
   const callback = encodeURIComponent(`/invite/accept?token=${token}`);
 
@@ -158,7 +158,7 @@ export default async function AcceptInvitePage({
                   Profiles included ({details.teamProfiles.length}):
                 </p>
                 <div className="space-y-1.5">
-                  {details.teamProfiles.map((p: any) => (
+                  {details.teamProfiles.map(p => (
                     <div
                       key={p.id}
                       className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400"

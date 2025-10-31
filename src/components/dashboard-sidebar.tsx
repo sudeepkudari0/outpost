@@ -142,7 +142,7 @@ function QuotaWidget() {
   const { state } = useSidebar();
   const { data, isLoading } = useQuery({
     queryKey: ['quota', 'status'],
-    queryFn: () => client.quota.status(),
+    queryFn: () => client.quota.status({}),
     staleTime: 30_000,
   });
 
@@ -226,7 +226,7 @@ function QuotaWidget() {
                 ? '∞'
                 : hasBYOK
                   ? '∞'
-                  : `${(data as any)?.ai?.daily?.used ?? 0}/${(data as any)?.ai?.daily?.limit ?? 0}`}
+                  : `${data?.ai?.daily?.used ?? 0}/${data?.ai?.daily?.limit ?? 0}`}
             {!isCollapsed && hasBYOK && (
               <Badge variant="secondary" className="h-4 text-[10px] px-1.5">
                 Using your key{byokProvider ? ` · ${byokProvider}` : ''}
@@ -235,13 +235,13 @@ function QuotaWidget() {
           </span>
         </div>
         <Progress
-          value={isLoading ? 0 : ((data as any)?.ai?.daily?.percentage ?? 0)}
+          value={isLoading ? 0 : (data?.ai?.daily?.percentage ?? 0)}
           className="h-1.5"
         />
         {!isCollapsed &&
           !hasBYOK &&
           (() => {
-            const aiDaily = (data as any)?.ai?.daily;
+            const aiDaily = data?.ai?.daily;
             const limit = aiDaily?.limit;
             const used = aiDaily?.used;
             const isFinitePlan = typeof limit === 'number' && limit !== -1;

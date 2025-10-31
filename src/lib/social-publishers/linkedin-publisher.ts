@@ -216,7 +216,7 @@ export class LinkedInPublisher extends BaseSocialPublisher {
       throw new Error(`LinkedIn register image upload failed: ${errText}`);
     }
 
-    const data = (await response.json()) as any;
+    const data = await response.json();
     const uploadReq =
       data?.value?.uploadMechanism?.[
         'com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'

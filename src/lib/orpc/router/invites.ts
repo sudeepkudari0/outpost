@@ -49,10 +49,10 @@ export const invitesRouter = {
     )
     .handler(async ({ input, context }) => {
       const { prisma } = context as { prisma: any };
-      const invite = await (prisma as any).invite.findUnique({
+      const invite = await prisma.invite.findUnique({
         where: { token: input.token },
       });
-      if (!invite) return { exists: false } as any;
+      if (!invite) return { exists: false };
       const expired = invite.expiresAt < new Date();
       const inviter = await prisma.user.findUnique({
         where: { id: invite.inviterId },
@@ -78,7 +78,7 @@ export const invitesRouter = {
         teamProfiles,
         planTier: invite.planTier ?? undefined,
         expired,
-      } as any;
+      };
     }),
   createPlatformInvite: authed
     .route({
@@ -103,7 +103,7 @@ export const invitesRouter = {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + input.expiresInDays);
 
-      const invite = await (prisma as any).invite.create({
+      const invite = await prisma.invite.create({
         data: {
           email: input.email,
           inviterId: user.id,
@@ -183,7 +183,7 @@ export const invitesRouter = {
     .handler(async ({ input, context }) => {
       const { prisma, user } = context as { prisma: any; user: any };
 
-      const invite = await (prisma as any).invite.findUnique({
+      const invite = await prisma.invite.findUnique({
         where: { token: input.token },
       });
       if (!invite) {
@@ -210,14 +210,12 @@ export const invitesRouter = {
             where: { id: { in: uniqueProfileIds } },
             select: { id: true, userId: true },
           });
-          const existingIds = new Set(
-            (profiles as any[]).map((p: any) => p.id)
-          );
+          const existingIds = new Set(profiles.map((p: any) => p.id));
           const toCreate = uniqueProfileIds.filter(id => existingIds.has(id));
           if (toCreate.length > 0) {
             await prisma.$transaction(
               toCreate.map(pid =>
-                (prisma as any).profileShare.upsert({
+                prisma.profileShare.upsert({
                   where: {
                     profileId_memberUserId: {
                       profileId: pid,
@@ -227,9 +225,8 @@ export const invitesRouter = {
                   create: {
                     profileId: pid,
                     memberUserId: user.id,
-                    createdById: (profiles as any[]).find(
-                      (p: any) => p.id === pid
-                    )!.userId,
+                    createdById: profiles.find((p: any) => p.id === pid)!
+                      .userId,
                     scopes: ['post'],
                   },
                   update: {},
@@ -240,7 +237,7 @@ export const invitesRouter = {
         }
       }
 
-      await (prisma as any).invite.update({
+      await prisma.invite.update({
         where: { id: invite.id },
         data: { acceptedAt: new Date() },
       });

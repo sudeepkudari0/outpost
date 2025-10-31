@@ -189,7 +189,7 @@ export default function ConnectionsView({
 
   const quotaQuery = useQuery({
     queryKey: ['quota', 'status'],
-    queryFn: () => client.quota.status(),
+    queryFn: () => client.quota.status({}),
     staleTime: 30_000,
   });
 
@@ -227,7 +227,7 @@ export default function ConnectionsView({
   });
 
   const membersForSelected = useMemo(() => {
-    const all = (sharesQuery.data as any[]) || [];
+    const all = sharesQuery.data || [];
     return all.filter(s => s.profileId === selectedProfile);
   }, [sharesQuery.data, selectedProfile]);
 
@@ -438,6 +438,8 @@ export default function ConnectionsView({
         platform?: string;
         accounts?: ConnectedAccount[];
         error?: string;
+        code?: string;
+        state?: string;
       };
 
       if (data?.type === 'oauth-success') {
@@ -453,13 +455,9 @@ export default function ConnectionsView({
           }
           setConnectingPlatform(null);
         })();
-      } else if (
-        data?.type === 'oauth-code' &&
-        (data as any).code &&
-        (data as any).state
-      ) {
-        const code = (data as any).code as string;
-        const state = (data as any).state as string;
+      } else if (data?.type === 'oauth-code' && data.code && data.state) {
+        const code = data.code as string;
+        const state = data.state as string;
         (async () => {
           try {
             const stateData = JSON.parse(

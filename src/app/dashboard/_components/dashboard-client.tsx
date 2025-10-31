@@ -34,7 +34,7 @@ type AccountItem = {
 
 function toDate(input?: string | Date | null) {
   if (!input) return null;
-  const d = new Date(input as any);
+  const d = new Date(input);
   return isNaN(d.getTime()) ? null : d;
 }
 
@@ -86,7 +86,7 @@ export default function DashboardClient({
   );
   const scheduledCount = scheduledPosts.length;
   const upcoming = scheduledPosts
-    .map(p => toDate((p as any).scheduledFor || (p as any).scheduled_at))
+    .map(p => toDate(p.scheduledFor))
     .filter((d): d is Date => !!d && d.getTime() >= Date.now())
     .sort((a, b) => a.getTime() - b.getTime());
   const nextScheduled = upcoming[0] ? upcoming[0].toISOString() : null;
@@ -98,18 +98,15 @@ export default function DashboardClient({
 
   const recentActivity = posts
     .map(p => ({
-      id: (p as any).id,
-      status: (p as any).status,
-      platform: Array.isArray((p as any).platforms)
-        ? (p as any).platforms.map((x: any) =>
+      id: p.id,
+      status: p.status,
+      platform: Array.isArray(p.platforms)
+        ? p.platforms.map((x: any) =>
             typeof x === 'string' ? x : x.platform
           )[0]
         : undefined,
-      createdAt:
-        ((p as any).createdAt as any) ||
-        (p as any).scheduledFor ||
-        (p as any).scheduled_at,
-      content: (p as any).content,
+      createdAt: p.createdAt || p.scheduledFor,
+      content: p.content,
     }))
     .sort((a, b) => {
       const ad = new Date(a.createdAt || 0).getTime();
@@ -241,7 +238,7 @@ export default function DashboardClient({
                     {item.platform ? ` to ${item.platform}` : ''}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {formatDateTime(item.createdAt as any)}
+                    {formatDateTime(item.createdAt as string | null)}
                   </p>
                 </div>
                 <div

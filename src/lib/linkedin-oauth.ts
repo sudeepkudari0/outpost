@@ -123,7 +123,7 @@ export class LinkedInOAuthService {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (userinfo.ok) {
-      const data = (await userinfo.json()) as any;
+      const data = await userinfo.json();
       return {
         id: data.sub,
         localizedFirstName: data.given_name,
@@ -167,7 +167,7 @@ export class LinkedInOAuthService {
       const err = await response.text();
       throw new Error(`LinkedIn organization fetch failed: ${err}`);
     }
-    const data = (await response.json()) as any;
+    const data = await response.json();
     const elements = Array.isArray(data.elements) ? data.elements : [];
     return elements
       .map((e: any) => e['organization~'])

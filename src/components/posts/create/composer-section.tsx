@@ -60,8 +60,8 @@ export function ComposerSection({
     let mounted = true;
     (async () => {
       try {
-        const quota = await client.quota.status();
-        const tier = (quota as any)?.tier;
+        const quota = await client.quota.status({});
+        const tier = quota?.tier;
         let localAi: any = undefined;
         try {
           const raw = localStorage.getItem('aiSettings');
@@ -76,7 +76,7 @@ export function ComposerSection({
           );
           return;
         }
-        const ai = (quota as any)?.ai?.daily;
+        const ai = quota?.ai?.daily;
         if (ai && ai.limit === 0 && !hasBYOK) {
           if (!mounted) return;
           setAiDisabled(true);

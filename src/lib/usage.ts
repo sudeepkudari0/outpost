@@ -60,7 +60,7 @@ export async function getUserUsage(userId: string) {
 
     // Reset AI daily counter if it's a new day
     const lastAiReset = new Date(
-      (usage as any).lastAiResetDate || usage.lastPostResetDate
+      usage.lastAiResetDate || usage.lastPostResetDate
     );
     lastAiReset.setHours(0, 0, 0, 0);
 
@@ -73,8 +73,8 @@ export async function getUserUsage(userId: string) {
         },
       });
 
-      (usage as any).aiGenerationsToday = 0;
-      (usage as any).lastAiResetDate = new Date();
+      usage.aiGenerationsToday = 0;
+      usage.lastAiResetDate = new Date();
     }
 
     // Reset monthly counter if it's a new month
@@ -110,7 +110,7 @@ export async function getUserUsage(userId: string) {
         },
       });
 
-      (usage as any).aiGenerationsThisMonth = 0;
+      usage.aiGenerationsThisMonth = 0;
     }
 
     return usage;

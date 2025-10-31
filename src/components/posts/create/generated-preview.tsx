@@ -273,10 +273,10 @@ export function GeneratedPreview({
   busy,
   uploading,
 }: Props) {
-  if (!bundle) return null as any;
+  if (!bundle) return null;
 
   const platformEntries = Object.entries(bundle);
-  if (platformEntries.length === 0) return null as any;
+  if (platformEntries.length === 0) return null;
 
   const firstPlatform = platformEntries[0]?.[0];
 
@@ -298,10 +298,8 @@ export function GeneratedPreview({
       <div className="space-y-4">
         {platformEntries.map(([platform, content], index) => {
           const isObject = typeof content === 'object' && content !== null;
-          const caption = isObject
-            ? (content as any).caption
-            : String(content ?? '');
-          const imageUrl = isObject ? (content as any).image : undefined;
+          const caption = isObject ? content.caption : String(content ?? '');
+          const imageUrl = isObject ? content.image : undefined;
           const platformInfo = PLATFORM_LABELS[platform] || {
             label: platform,
             icon: '',
@@ -318,7 +316,7 @@ export function GeneratedPreview({
             <PlatformCard
               key={platform}
               platform={platform}
-              caption={caption}
+              caption={caption || ''}
               platformInfo={platformInfo}
               mediaItems={mediaItems}
               isFirstPlatform={isFirstPlatform}

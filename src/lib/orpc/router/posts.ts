@@ -255,12 +255,12 @@ export const postsRouter = {
       // Upload to storage
       const key = `generated/${Date.now()}.png`;
       const presign = await getPresignedUrl(key);
-      if ((presign as any)?.error) {
+      if (presign?.error) {
         throw new ORPCError('INTERNAL_SERVER_ERROR', {
           message: 'Failed to get presigned URL',
         });
       }
-      const payload: any = (presign as any).result ?? presign;
+      const payload: any = presign.result ?? presign;
       const uploadUrl: string | undefined = payload.presignedUrl;
       if (!uploadUrl) {
         throw new ORPCError('INTERNAL_SERVER_ERROR', {
@@ -290,12 +290,12 @@ export const postsRouter = {
     .output(z.object({ presignedUrl: z.string(), publicUrl: z.string() }))
     .handler(async ({ input }) => {
       const raw = await getPresignedUrl(input.key);
-      if ((raw as any)?.error) {
+      if (raw?.error) {
         throw new ORPCError('INTERNAL_SERVER_ERROR', {
           message: 'Failed to get presigned URL',
         });
       }
-      const payload: any = (raw as any).result ?? raw;
+      const payload: any = raw.result ?? raw;
       const presignedUrl = payload.presignedUrl as string | undefined;
       const publicUrl = payload.publicUrl as string | undefined;
       if (!presignedUrl || !publicUrl) {
@@ -355,7 +355,7 @@ export const postsRouter = {
         select: { id: true },
       });
       if (!ownsProfile) {
-        const hasShare = await (prisma as any).profileShare.findFirst({
+        const hasShare = await prisma.profileShare.findFirst({
           where: { profileId: input.profileId, memberUserId: user.id },
         });
         if (!hasShare) {
@@ -494,8 +494,7 @@ export const postsRouter = {
 
               // Preflight: ensure Twitter token has tweet.write scope
               if (account.platform === 'TWITTER') {
-                const scope: string | undefined = (account as any)?.platformData
-                  ?.scope;
+                const scope: string | undefined = account?.platformData?.scope;
 
                 // Debug logging
                 console.log('=== TWITTER SCOPE DEBUG ===');

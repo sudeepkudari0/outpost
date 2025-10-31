@@ -9,7 +9,7 @@ async function getData() {
     client.team.listSharesDetailed(),
     client.team.listMyAccess(),
   ]);
-  return { profiles, sharesDetailed, myAccess } as any;
+  return { profiles, sharesDetailed, myAccess };
 }
 
 export default async function TeamPage() {

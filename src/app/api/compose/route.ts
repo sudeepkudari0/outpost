@@ -83,11 +83,11 @@ Return JSON with a single key "${platform}" containing the optimized content for
       );
     }
 
-    let parsed: any;
+    let parsed: Record<string, string>;
     try {
       parsed = JSON.parse(content);
     } catch {
-      parsed = { [platform]: content } as any;
+      parsed = { [platform]: content };
     }
     return NextResponse.json(parsed);
   } catch (error) {

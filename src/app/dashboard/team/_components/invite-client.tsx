@@ -102,7 +102,7 @@ export function InviteClient({
           </div>
           <div className="space-y-2">
             <Label>Profile</Label>
-            <Select value={profileId} onValueChange={setProfileId as any}>
+            <Select value={profileId} onValueChange={setProfileId}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a profile" />
               </SelectTrigger>

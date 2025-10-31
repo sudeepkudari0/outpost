@@ -73,7 +73,7 @@ export class TwitterPublisher extends BaseSocialPublisher {
         try {
           const contentType = response.headers.get('content-type') || '';
           if (contentType.includes('application/json')) {
-            const data = (await response.json()) as any;
+            const data = await response.json();
             fullErrorData = data;
 
             // Extract detailed error information
@@ -127,7 +127,7 @@ export class TwitterPublisher extends BaseSocialPublisher {
         return { success: false, error: message };
       }
 
-      const data = (await response.json()) as any;
+      const data = await response.json();
       const id = data?.data?.id as string | undefined;
       const url = id ? `https://x.com/i/web/status/${id}` : undefined;
       return { success: true, platformPostId: id, platformPostUrl: url };

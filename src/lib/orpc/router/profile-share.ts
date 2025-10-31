@@ -1,5 +1,6 @@
 import { authed } from '@/orpc';
 import { ORPCError } from '@orpc/server';
+import { PrismaClient, User } from '@prisma/client';
 import { z } from 'zod';
 
 const ShareProfilesSchema = z.object({
@@ -51,7 +52,7 @@ export const profileShareRouter = {
         const token = crypto.randomUUID();
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + input.expiresInDays);
-        await (prisma as any).invite.create({
+        await prisma.invite.create({
           data: {
             email: input.email,
             inviterId: user.id,
@@ -70,7 +71,7 @@ export const profileShareRouter = {
 
       // Member exists: create shares
       const toCreate = input.profileIds.map(pid =>
-        (prisma as any).profileShare.upsert({
+        prisma.profileShare.upsert({
           where: {
             profileId_memberUserId: { profileId: pid, memberUserId: member.id },
           },
@@ -107,7 +108,7 @@ export const profileShareRouter = {
         throw new ORPCError('FORBIDDEN', { message: 'Not profile owner' });
       }
 
-      await (prisma as any).profileShare.deleteMany({
+      await prisma.profileShare.deleteMany({
         where: { profileId: input.profileId, memberUserId: input.memberUserId },
       });
       return { success: true };
@@ -138,13 +139,13 @@ export const profileShareRouter = {
         where: { userId: user.id },
         select: { id: true },
       });
-      const profileIds = (profiles as any[]).map((p: any) => p.id);
-      if (profileIds.length === 0) return [] as any[];
+      const profileIds = profiles.map((p: any) => p.id);
+      if (profileIds.length === 0) return [];
 
-      const shares = await (prisma as any).profileShare.findMany({
+      const shares = await prisma.profileShare.findMany({
         where: { profileId: { in: profileIds } },
       });
-      return shares as any;
+      return shares;
     }),
 
   listSharesDetailed: authed
@@ -168,30 +169,28 @@ export const profileShareRouter = {
       )
     )
     .handler(async ({ context }) => {
-      const { prisma, user } = context as { prisma: any; user: any };
+      const { prisma, user } = context as { prisma: PrismaClient; user: User };
       const profiles = await prisma.socialProfile.findMany({
         where: { userId: user.id },
         select: { id: true, name: true },
       });
-      const profileIds = (profiles as any[]).map((p: any) => p.id);
-      if (profileIds.length === 0) return [] as any[];
-      const shares = await (prisma as any).profileShare.findMany({
+      const profileIds = profiles.map(p => p.id);
+      if (profileIds.length === 0) return [];
+      const shares = await prisma.profileShare.findMany({
         where: { profileId: { in: profileIds } },
       });
-      const memberIds = Array.from(
-        new Set((shares as any[]).map((s: any) => s.memberUserId))
-      );
+      const memberIds = Array.from(new Set(shares.map(s => s.memberUserId)));
       const members = await prisma.user.findMany({
         where: { id: { in: memberIds } },
         select: { id: true, email: true, name: true },
       });
-      const memberMap = new Map<string, any>(
+      const memberMap = new Map<string, User>(
         members.map((m: any) => [m.id, m])
       );
       const profileMap = new Map<string, any>(
-        (profiles as any[]).map((p: any) => [p.id, p])
+        profiles.map((p: any) => [p.id, p])
       );
-      return (shares as any[]).map((s: any) => ({
+      return shares.map((s: any) => ({
         profileId: s.profileId,
         profileName: profileMap.get(s.profileId)?.name ?? '',
         memberUserId: s.memberUserId,
@@ -224,29 +223,27 @@ export const profileShareRouter = {
     )
     .handler(async ({ context }) => {
       const { prisma, user } = context as { prisma: any; user: any };
-      const shares = await (prisma as any).profileShare.findMany({
+      const shares = await prisma.profileShare.findMany({
         where: { memberUserId: user.id },
       });
-      if ((shares as any[]).length === 0) return [] as any[];
+      if (shares.length === 0) return [];
       const profileIds = Array.from(
-        new Set((shares as any[]).map((s: any) => s.profileId))
+        new Set(shares.map((s: any) => s.profileId))
       );
       const profiles = await prisma.socialProfile.findMany({
         where: { id: { in: profileIds } },
         select: { id: true, name: true, userId: true },
       });
-      const ownerIds = Array.from(
-        new Set((profiles as any[]).map((p: any) => p.userId))
-      );
+      const ownerIds = Array.from(new Set(profiles.map((p: any) => p.userId)));
       const owners = await prisma.user.findMany({
         where: { id: { in: ownerIds } },
         select: { id: true, email: true, name: true },
       });
       const profileMap = new Map<string, any>(
-        (profiles as any[]).map((p: any) => [p.id, p])
+        profiles.map((p: any) => [p.id, p])
       );
       const ownerMap = new Map<string, any>(owners.map((o: any) => [o.id, o]));
-      return (shares as any[]).map((s: any) => {
+      return shares.map((s: any) => {
         const p = profileMap.get(s.profileId);
         const owner = p ? ownerMap.get(p.userId) : undefined;
         return {

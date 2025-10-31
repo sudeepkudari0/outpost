@@ -32,7 +32,7 @@ export const apiKeysRouter = {
       )
     )
     .handler(async ({ context }) => {
-      const { user } = context as any;
+      const { user } = context;
       const keys = await prisma.apiKey.findMany({
         where: { userId: user.id },
         orderBy: { createdAt: 'desc' },
@@ -47,7 +47,7 @@ export const apiKeysRouter = {
           updatedAt: true,
         },
       });
-      return keys as any;
+      return keys;
     }),
 
   issue: authed
@@ -70,7 +70,7 @@ export const apiKeysRouter = {
       z.object({ apiKey: z.string(), id: z.string(), lastFour: z.string() })
     )
     .handler(async ({ input, context }) => {
-      const { user } = context as any;
+      const { user } = context;
       const apiKey = generateApiKey(
         process.env.NODE_ENV === 'production' ? 'sk_live' : 'sk_test'
       );
@@ -105,7 +105,7 @@ export const apiKeysRouter = {
     .input(z.object({ id: z.string() }))
     .output(z.object({ success: z.boolean() }))
     .handler(async ({ input, context }) => {
-      const { user } = context as any;
+      const { user } = context;
       const found = await prisma.apiKey.findFirst({
         where: { id: input.id, userId: user.id },
       });

@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { client } from '@/lib/orpc/client';
+import { SubscriptionTier } from '@prisma/client';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
 
@@ -154,7 +155,7 @@ function RowActions({ user }: { user: AdminUser }) {
       await client.admin.updateUser({
         userId: user.id,
         name: name || undefined,
-        planTier: tier as any,
+        planTier: tier as SubscriptionTier,
       });
       window.location.reload();
     } finally {

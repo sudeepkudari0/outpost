@@ -109,7 +109,7 @@ export const adminRouter = {
         timeseries: {
           usersLast30Days: last30Days,
         },
-      } as any;
+      };
     }),
   listUsers: authed
     .route({
@@ -129,7 +129,7 @@ export const adminRouter = {
           usage: true,
         },
       });
-      return users as any;
+      return users;
     }),
 
   updateUser: authed
@@ -157,7 +157,7 @@ export const adminRouter = {
         });
       }
       if (input.planTier) {
-        await updateSubscriptionTier(input.userId, input.planTier as any);
+        await updateSubscriptionTier(input.userId, input.planTier);
       }
       return { success: true };
     }),

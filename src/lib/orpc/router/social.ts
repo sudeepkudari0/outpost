@@ -149,7 +149,7 @@ export const socialRouter = {
       });
 
       // Enforce with fallback to code limits if TierConfig is missing
-      const effectiveTier = (userWithUsage.subscription?.tier || 'FREE') as any;
+      const effectiveTier = userWithUsage.subscription?.tier || 'FREE';
       const maxProfiles =
         tierConfig?.maxProfiles ?? getTierLimits(effectiveTier).maxProfiles;
 
@@ -228,7 +228,7 @@ export const socialRouter = {
       });
 
       // Profiles shared to this user
-      const shares = await (prisma as any).profileShare.findMany({
+      const shares = await prisma.profileShare.findMany({
         where: { memberUserId: user.id },
         include: { profile: true },
       });
@@ -368,7 +368,7 @@ export const socialRouter = {
         where: { id: input.profileId, userId: user.id },
       });
       if (!profile) {
-        const shared = await (prisma as any).profileShare.findFirst({
+        const shared = await prisma.profileShare.findFirst({
           where: { profileId: input.profileId, memberUserId: user.id },
         });
         if (!shared) {
@@ -517,6 +517,7 @@ export const socialRouter = {
         profileId: string;
         platform: string;
         userId: string;
+        codeVerifier?: string;
       };
 
       try {
@@ -704,9 +705,7 @@ export const socialRouter = {
       } else if (platform === 'TWITTER') {
         const tw = createTwitterOAuthService(redirectUri);
 
-        const codeVerifier = (stateData as any).codeVerifier as
-          | string
-          | undefined;
+        const codeVerifier = stateData?.codeVerifier as string | undefined;
         if (!codeVerifier) {
           throw new ORPCError('BAD_REQUEST', {
             message: 'Missing PKCE verifier in state',

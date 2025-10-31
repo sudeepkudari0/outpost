@@ -101,8 +101,8 @@ async function handleRequest(request: Request) {
           if (user) {
             apiKeyUser = {
               id: user.id,
-              email: (user as any).email,
-              role: (user as any).role,
+              email: user.email,
+              role: user.role,
             };
             apiKeyScopes = keyRecord.scopes || [];
             apiKeyId = keyRecord.id;

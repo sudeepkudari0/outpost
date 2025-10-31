@@ -1,5 +1,5 @@
-import { type NextRequest, NextResponse } from 'next/server';
 import { getPresignedUrl } from '@/lib/storage';
+import { type NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,10 +8,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'key is required' }, { status: 400 });
     }
     const raw = await getPresignedUrl(key);
-    if ((raw as any)?.error) {
+    if (raw?.error) {
       return NextResponse.json(raw, { status: 500 });
     }
-    const r: any = raw as any;
+    const r: any = raw;
     const payload = r.result ? r.result : r;
     const presignedUrl = payload.presignedUrl;
     const publicUrl = payload.publicUrl;

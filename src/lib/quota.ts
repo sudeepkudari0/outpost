@@ -242,23 +242,22 @@ export async function getRemainingQuota(userId: string) {
       },
       ai: {
         daily: {
-          used: (usage as any).aiGenerationsToday || 0,
+          used: usage.aiGenerationsToday || 0,
           limit: limits.maxAiGenerationsPerDay,
           remaining:
             limits.maxAiGenerationsPerDay === -1
               ? -1
-              : limits.maxAiGenerationsPerDay -
-                ((usage as any).aiGenerationsToday || 0),
+              : limits.maxAiGenerationsPerDay - (usage.aiGenerationsToday || 0),
           unlimited: limits.maxAiGenerationsPerDay === -1,
         },
         monthly: {
-          used: (usage as any).aiGenerationsThisMonth || 0,
+          used: usage.aiGenerationsThisMonth || 0,
           limit: limits.maxAiGenerationsPerMonth,
           remaining:
             limits.maxAiGenerationsPerMonth === -1
               ? -1
               : limits.maxAiGenerationsPerMonth -
-                ((usage as any).aiGenerationsThisMonth || 0),
+                (usage.aiGenerationsThisMonth || 0),
           unlimited: limits.maxAiGenerationsPerMonth === -1,
         },
       },
@@ -317,8 +316,8 @@ export async function canGenerateAI(
       };
     }
 
-    const usedDaily = (usage as any).aiGenerationsToday || 0;
-    const usedMonthly = (usage as any).aiGenerationsThisMonth || 0;
+    const usedDaily = usage.aiGenerationsToday || 0;
+    const usedMonthly = usage.aiGenerationsThisMonth || 0;
 
     if (limits.maxAiGenerationsPerDay !== -1) {
       if (usedDaily + weight > limits.maxAiGenerationsPerDay) {
@@ -517,38 +516,38 @@ export async function getQuotaStatus(userId: string) {
       },
       ai: {
         daily: {
-          ...((quota as any).ai?.daily || {
+          ...(quota.ai?.daily || {
             used: 0,
             limit: 0,
             remaining: 0,
             unlimited: false,
           }),
           percentage: calculatePercentage(
-            (quota as any).ai?.daily?.used || 0,
-            (quota as any).ai?.daily?.limit || 0
+            quota.ai?.daily?.used || 0,
+            quota.ai?.daily?.limit || 0
           ),
           status: getStatus(
             calculatePercentage(
-              (quota as any).ai?.daily?.used || 0,
-              (quota as any).ai?.daily?.limit || 0
+              quota.ai?.daily?.used || 0,
+              quota.ai?.daily?.limit || 0
             )
           ),
         },
         monthly: {
-          ...((quota as any).ai?.monthly || {
+          ...(quota.ai?.monthly || {
             used: 0,
             limit: 0,
             remaining: 0,
             unlimited: false,
           }),
           percentage: calculatePercentage(
-            (quota as any).ai?.monthly?.used || 0,
-            (quota as any).ai?.monthly?.limit || 0
+            quota.ai?.monthly?.used || 0,
+            quota.ai?.monthly?.limit || 0
           ),
           status: getStatus(
             calculatePercentage(
-              (quota as any).ai?.monthly?.used || 0,
-              (quota as any).ai?.monthly?.limit || 0
+              quota.ai?.monthly?.used || 0,
+              quota.ai?.monthly?.limit || 0
             )
           ),
         },

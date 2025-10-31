@@ -10,7 +10,7 @@ export const quotaRouter = {
       summary: 'Get current quota usage and limits',
       tags: ['Quota'],
     })
-    .input(z.void())
+    .input(z.object({}))
     .output(
       z.object({
         tier: z.string(),
