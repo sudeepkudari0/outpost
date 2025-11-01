@@ -191,7 +191,9 @@ export const SignupForm = ({
 
           <Button
             variant="outline"
-            onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
+            onClick={() =>
+              signIn('google', { callbackUrl: callbackUrl || '/dashboard' })
+            }
             className="w-full h-11 border-border hover:bg-accent text-foreground font-medium rounded-lg transition-colors"
           >
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">

@@ -85,6 +85,8 @@ export function DashboardHeader({ user }: { user: User }) {
         return 'Manage your account settings';
       case '/dashboard/api-keys':
         return 'Manage your API keys and integrations';
+      case '/dashboard/team':
+        return 'Manage your team and invites';
       default:
         return 'Dashboard';
     }

@@ -18,18 +18,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { client } from '@/lib/orpc/client';
 import { UserPlus } from 'lucide-react';
 import { useState } from 'react';
+import { createInvitesColumns, type PlatformInvite } from './invites-columns';
 import { usersColumns, type AdminUser } from './users-columns';
 
-export default function UsersComponent({ users }: { users: any[] }) {
+export default function UsersComponent({
+  users,
+  invites,
+}: {
+  users: any[];
+  invites: any[];
+}) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [tier, setTier] = useState<string | undefined>(undefined);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [invitesList, setInvitesList] = useState<any[]>(invites);
   const { toast } = useToast();
 
   async function handleInvite() {
@@ -62,6 +71,9 @@ export default function UsersComponent({ users }: { users: any[] }) {
       setEmail('');
       setTier(undefined);
       setInviteUrl(null);
+      // Refresh invites list
+      const updatedInvites = await client.invites.listPlatformInvites();
+      setInvitesList(updatedInvites || []);
     } catch (e: any) {
       toast({
         title: 'Error',
@@ -75,19 +87,44 @@ export default function UsersComponent({ users }: { users: any[] }) {
 
   return (
     <div className="">
-      <Card>
-        <CardContent>
-          <DataTable<AdminUser, unknown>
-            columns={usersColumns}
-            data={users as AdminUser[]}
-            actions={
-              <Button onClick={() => setOpen(true)}>
-                <UserPlus className="h-4 w-4 mr-2" /> Invite User
-              </Button>
-            }
-          />
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="users" className="w-full">
+        <Card>
+          <CardContent className="pt-6">
+            <TabsList className="mb-4">
+              <TabsTrigger value="users">Users</TabsTrigger>
+              <TabsTrigger value="invites">Invites</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="users" className="mt-0">
+              <DataTable<AdminUser, unknown>
+                columns={usersColumns}
+                data={users as AdminUser[]}
+                actions={
+                  <Button onClick={() => setOpen(true)}>
+                    <UserPlus className="h-4 w-4 mr-2" /> Invite User
+                  </Button>
+                }
+              />
+            </TabsContent>
+
+            <TabsContent value="invites" className="mt-0">
+              <DataTable<PlatformInvite, unknown>
+                columns={createInvitesColumns(async () => {
+                  const updatedInvites =
+                    await client.invites.listPlatformInvites();
+                  setInvitesList(updatedInvites || []);
+                })}
+                data={invitesList as PlatformInvite[]}
+                actions={
+                  <Button onClick={() => setOpen(true)}>
+                    <UserPlus className="h-4 w-4 mr-2" /> Invite User
+                  </Button>
+                }
+              />
+            </TabsContent>
+          </CardContent>
+        </Card>
+      </Tabs>
 
       {open && (
         <div className="flex items-center justify-between">

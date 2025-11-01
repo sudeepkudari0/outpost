@@ -23,8 +23,10 @@ import { useState } from 'react';
 
 export function InviteClient({
   profiles,
+  onInviteSuccess,
 }: {
   profiles: Array<{ id: string; name: string }>;
+  onInviteSuccess?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
@@ -70,6 +72,9 @@ export function InviteClient({
       setOpen(false);
       setEmail('');
       setProfileId(undefined);
+      if (onInviteSuccess) {
+        onInviteSuccess();
+      }
     } catch (e: any) {
       toast({
         title: 'Failed to invite',
