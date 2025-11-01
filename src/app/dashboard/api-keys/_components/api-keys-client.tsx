@@ -14,15 +14,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { client } from '@/lib/orpc/client';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  AlertCircle,
-  Check,
-  CheckCircle,
-  Copy,
-  Eye,
-  EyeOff,
-  Save,
-} from 'lucide-react';
+import { AlertCircle, CheckCircle, Copy } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 type AppKey = {
@@ -194,14 +186,7 @@ export default function ApiKeysClient(props: {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">API Keys</h1>
-        <p className="text-muted-foreground">
-          Manage your API keys and integrations
-        </p>
-      </div>
-
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
       {validation && (
         <Alert variant={validation.isValid ? 'default' : 'destructive'}>
           {validation.isValid ? (
@@ -298,72 +283,6 @@ export default function ApiKeysClient(props: {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>OpenAI Configuration</CardTitle>
-            <CardDescription>
-              Configure OpenAI for AI-powered content generation
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="openai-api-key">OpenAI API Key</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="openai-api-key"
-                  type={showOpenAIKey ? 'text' : 'password'}
-                  placeholder="Enter your OpenAI API key"
-                  className="flex-1"
-                  value={openaiApiKey}
-                  onChange={e => setOpenaiApiKey(e.target.value)}
-                />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setShowOpenAIKey(!showOpenAIKey)}
-                >
-                  {showOpenAIKey ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() =>
-                    copyToClipboard(openaiApiKey, 'OpenAI API Key')
-                  }
-                  disabled={!openaiApiKey}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="flex justify-end">
-          <Button
-            onClick={saveApiKeys}
-            disabled={saving || !openaiApiKey}
-            className="min-w-[120px]"
-          >
-            {saving ? (
-              'Saving...'
-            ) : saved ? (
-              <>
-                <Check className="h-4 w-4 mr-2" />
-                Saved
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4 mr-2" />
-                Save Keys
-              </>
-            )}
-          </Button>
-        </div>
 
         <Card>
           <CardHeader>

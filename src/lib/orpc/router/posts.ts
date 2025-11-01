@@ -1,4 +1,3 @@
-// Scheduling handled via Vercel Cron runner; no external cron client
 import {
   generateImage as generateAiImage,
   generateText as generateAiText,
@@ -746,5 +745,222 @@ export const postsRouter = {
       });
 
       return { success: true };
+    }),
+
+  get: authed
+    .route({
+      method: 'GET',
+      path: '/posts/get',
+      summary: 'Get a single post by ID',
+      tags: ['Posts'],
+    })
+    .input(
+      z.object({
+        id: z.string().min(1),
+      })
+    )
+    .output(
+      z.object({
+        id: z.string(),
+        content: z.any(),
+        mediaUrls: z.array(z.string()).optional(),
+        status: z.string(),
+        scheduledFor: z.date().nullable().optional(),
+        createdAt: z.date(),
+        profileId: z.string(),
+        platforms: z.array(
+          z.object({
+            platform: z.string(),
+            accountId: z.string(),
+          })
+        ),
+        publishingOption: z.string().optional(),
+        timezone: z.string().optional(),
+      })
+    )
+    .handler(async ({ input, context }) => {
+      const { prisma, user } = context;
+
+      if (!prisma || !user?.id) {
+        throw new ORPCError('UNAUTHORIZED', { message: 'Not authenticated' });
+      }
+
+      const post = await prisma.post.findFirst({
+        where: {
+          id: input.id,
+          userId: user.id,
+        },
+        include: {
+          platforms: true,
+        },
+      });
+
+      if (!post) {
+        throw new ORPCError('NOT_FOUND', {
+          message: 'Post not found',
+        });
+      }
+
+      return {
+        id: post.id,
+        content: post.content,
+        mediaUrls: post.mediaUrls,
+        status: post.status,
+        scheduledFor: post.scheduledFor ?? null,
+        createdAt: post.createdAt,
+        profileId: post.profileId,
+        platforms: post.platforms.map((pp: any) => ({
+          platform: pp.platform,
+          accountId: pp.accountId || '',
+        })),
+        publishingOption: post.publishingOption || 'draft',
+        timezone: post.timezone || 'America/Los_Angeles',
+      };
+    }),
+
+  update: authed
+    .route({
+      method: 'PUT',
+      path: '/posts/update',
+      summary: 'Update an existing post',
+      tags: ['Posts'],
+    })
+    .input(
+      z.object({
+        id: z.string().min(1),
+        profileId: z.string().min(1).optional(),
+        platforms: z
+          .array(
+            z.object({
+              accountId: z.string(),
+              platform: z.string().optional(),
+            })
+          )
+          .optional(),
+        content: z.any().optional(),
+        mediaItems: z
+          .array(
+            z.object({
+              url: z.string(),
+              type: z.enum(['image', 'video']).optional(),
+              filename: z.string().optional(),
+              size: z.number().optional(),
+            })
+          )
+          .optional(),
+        publishingOption: z.enum(['now', 'schedule', 'draft']).optional(),
+        scheduledFor: z.string().optional(),
+        timezone: z.string().optional(),
+      })
+    )
+    .output(z.object({ success: z.boolean(), id: z.string().optional() }))
+    .handler(async ({ input, context }) => {
+      const { prisma, user } = context;
+
+      if (!prisma || !user?.id) {
+        throw new ORPCError('UNAUTHORIZED', { message: 'Not authenticated' });
+      }
+
+      // Find the post and verify ownership
+      const post = await prisma.post.findFirst({
+        where: {
+          id: input.id,
+          userId: user.id,
+        },
+      });
+
+      if (!post) {
+        throw new ORPCError('NOT_FOUND', {
+          message: 'Post not found',
+        });
+      }
+
+      // Only allow editing of DRAFT or SCHEDULED posts
+      if (post.status !== 'DRAFT' && post.status !== 'SCHEDULED') {
+        throw new ORPCError('FORBIDDEN', {
+          message: 'Only draft or scheduled posts can be edited',
+        });
+      }
+
+      const toPlatformEnum = (value?: string): Platform => {
+        const upper = (value || 'INSTAGRAM').toUpperCase();
+        switch (upper) {
+          case 'FACEBOOK':
+            return Platform.FACEBOOK;
+          case 'INSTAGRAM':
+            return Platform.INSTAGRAM;
+          case 'TWITTER':
+            return Platform.TWITTER;
+          case 'LINKEDIN':
+            return Platform.LINKEDIN;
+          case 'TIKTOK':
+            return Platform.TIKTOK;
+          case 'YOUTUBE':
+            return Platform.YOUTUBE;
+          case 'THREADS':
+            return Platform.THREADS;
+          default:
+            return Platform.INSTAGRAM;
+        }
+      };
+
+      // Determine post status based on publishing option
+      const postStatus =
+        input.publishingOption === 'draft'
+          ? 'DRAFT'
+          : input.publishingOption === 'schedule'
+            ? 'SCHEDULED'
+            : post.status === 'SCHEDULED'
+              ? 'SCHEDULED'
+              : 'DRAFT';
+
+      // Update the post
+      await prisma.post.update({
+        where: { id: input.id },
+        data: {
+          content: input.content !== undefined ? input.content : post.content,
+          mediaUrls:
+            input.mediaItems !== undefined
+              ? input.mediaItems.map(m => m.url)
+              : post.mediaUrls,
+          status: postStatus,
+          scheduledFor:
+            input.scheduledFor !== undefined
+              ? input.scheduledFor
+                ? new Date(input.scheduledFor)
+                : null
+              : post.scheduledFor,
+          timezone:
+            input.timezone !== undefined ? input.timezone : post.timezone,
+          publishingOption:
+            input.publishingOption !== undefined
+              ? input.publishingOption === 'now'
+                ? 'NOW'
+                : input.publishingOption === 'schedule'
+                  ? 'SCHEDULE'
+                  : 'DRAFT'
+              : post.publishingOption,
+        },
+      });
+
+      // Update platforms if provided
+      if (input.platforms && input.platforms.length > 0) {
+        // Delete existing platforms
+        await prisma.postPlatform.deleteMany({
+          where: { postId: input.id },
+        });
+
+        // Create new platform entries
+        await prisma.postPlatform.createMany({
+          data: input.platforms.map(p => ({
+            postId: input.id,
+            platform: toPlatformEnum(p.platform),
+            accountId: p.accountId,
+            status: 'PENDING',
+          })),
+        });
+      }
+
+      return { success: true, id: input.id };
     }),
 };

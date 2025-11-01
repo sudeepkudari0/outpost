@@ -6,12 +6,6 @@ import type React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -26,13 +20,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  Copy,
   Edit,
   FileText,
   Filter,
   Image as ImageIcon,
   List,
-  MoreVertical,
   Plus,
   Trash2,
 } from 'lucide-react';
@@ -178,22 +170,36 @@ const PlatformBadge = ({
   platform: string;
   published: boolean;
 }) => {
-  const colors: Record<string, string> = {
-    instagram: 'bg-muted text-foreground border-border',
-    facebook: 'bg-muted text-foreground border-border',
-    linkedin: 'bg-muted text-foreground border-border',
-    twitter: 'bg-muted text-foreground border-border',
+  const platformLower = platform.toLowerCase();
+
+  // Map platforms to their logo paths
+  const logoMap: Record<string, string> = {
+    facebook: '/images/logos/facebook.png',
+    instagram: '/images/logos/instagram.png',
+    linkedin: '/images/logos/linkedin.png',
+    twitter: '/images/logos/twitter.png',
+    x: '/images/logos/twitter.png', // Twitter/X uses same logo
+    reddit: '/images/logos/reddit.png',
+    youtube: '/images/logos/youtube.png',
   };
 
+  const logoPath = logoMap[platformLower];
+
   return (
-    <div
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-medium ${
-        colors[platform.toLowerCase()] ||
-        'bg-muted text-foreground border-border'
-      }`}
-    >
-      {platform}
-      {published && <CheckCircle2 className="h-3 w-3 text-emerald-500" />}
+    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/10 text-primary border border-primary/20 text-xs font-medium">
+      {logoPath && (
+        <img
+          src={logoPath}
+          alt={platform}
+          className="h-3.5 w-3.5 object-contain"
+          onError={e => {
+            // Hide image if it fails to load
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+      )}
+      <span>{platform}</span>
+      <Clock className="h-3 w-3" />
     </div>
   );
 };
@@ -216,6 +222,9 @@ export default function PostsView({
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [importPreview, setImportPreview] = useState<any[]>([]);
   const [isImporting, setIsImporting] = useState(false);
+  const [expandedPosts, setExpandedPosts] = useState<Record<string, boolean>>(
+    {}
+  );
   const { toast } = useToast();
 
   const getPostDate = (post: UiPost) => {
@@ -370,6 +379,37 @@ export default function PostsView({
     window.URL.revokeObjectURL(url);
   };
 
+  const toggleExpand = (postId: string) => {
+    setExpandedPosts(prev => ({
+      ...prev,
+      [postId]: !prev[postId],
+    }));
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    if (!confirm('Are you sure you want to delete this post?')) {
+      return;
+    }
+
+    try {
+      // TODO: Implement delete endpoint
+      // For now, just remove from local state
+      setPosts(prev => prev.filter(p => p.id !== postId));
+      toast({
+        title: 'Post deleted',
+        description: 'The post has been deleted successfully',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete post',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const CONTENT_PREVIEW_LENGTH = 150;
+
   return (
     <div className="bg-background p-4 rounded-2xl space-y-8">
       <div className="space-y-8">
@@ -483,7 +523,7 @@ export default function PostsView({
       </div>
 
       {viewMode === 'list' ? (
-        <div className=" grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {loading && (
             <div className="bg-card rounded-xl border border-border p-8 lg:p-12 text-center shadow-sm">
               <p className="text-muted-foreground">Loading posts...</p>
@@ -531,60 +571,48 @@ export default function PostsView({
 
                     {/* Post Content */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-4 mb-3 lg:mb-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            {post.status === 'published' ? (
-                              <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-400/30">
-                                <CheckCircle2 className="h-3 w-3 mr-1" />
-                                Published
-                              </Badge>
-                            ) : post.status === 'scheduled' ? (
-                              <Badge className="bg-primary/15 text-primary border-primary/30">
-                                <Clock className="h-3 w-3 mr-1" />
-                                Scheduled
-                              </Badge>
-                            ) : post.status === 'error' ? (
-                              <Badge className="bg-destructive/15 text-destructive border-destructive/30">
-                                <AlertCircle className="h-3 w-3 mr-1" />
-                                Error
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-muted text-muted-foreground border-border">
-                                <FileText className="h-3 w-3 mr-1" />
-                                Draft
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-sm lg:text-base text-foreground line-clamp-2 lg:line-clamp-3 leading-relaxed break-words break-all">
-                            {post.content}
-                          </p>
+                      <div className="mb-3 lg:mb-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          {post.status === 'published' ? (
+                            <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-400/30">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              Published
+                            </Badge>
+                          ) : post.status === 'scheduled' ? (
+                            <Badge className="bg-primary/15 text-primary border-primary/30">
+                              <Clock className="h-3 w-3 mr-1" />
+                              Scheduled
+                            </Badge>
+                          ) : post.status === 'error' ? (
+                            <Badge className="bg-destructive/15 text-destructive border-destructive/30">
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                              Error
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-muted text-muted-foreground border-border">
+                              <FileText className="h-3 w-3 mr-1" />
+                              Draft
+                            </Badge>
+                          )}
                         </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 flex-shrink-0"
+                        <div className="text-sm lg:text-base text-foreground leading-relaxed break-words">
+                          <p>
+                            {expandedPosts[post.id] ||
+                            post.content.length <= CONTENT_PREVIEW_LENGTH
+                              ? post.content
+                              : `${post.content.substring(0, CONTENT_PREVIEW_LENGTH)}...`}
+                          </p>
+                          {post.content.length > CONTENT_PREVIEW_LENGTH && (
+                            <button
+                              onClick={() => toggleExpand(post.id)}
+                              className="text-primary hover:text-primary/80 mt-1 text-sm underline cursor-pointer"
                             >
-                              <MoreVertical className="h-4 w-4 text-muted-foreground" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Copy className="h-4 w-4 mr-2" />
-                              Duplicate
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                              {expandedPosts[post.id]
+                                ? 'show less'
+                                : 'show more'}
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       {/* Post Meta */}
@@ -607,15 +635,38 @@ export default function PostsView({
                         </div>
                       </div>
 
-                      {/* Platforms */}
-                      <div className="flex flex-wrap items-center gap-2">
-                        {post.platforms.map(platform => (
-                          <PlatformBadge
-                            key={platform}
-                            platform={platform}
-                            published={post.status === 'published'}
-                          />
-                        ))}
+                      {/* Platforms and Actions */}
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {post.platforms.map(platform => (
+                            <PlatformBadge
+                              key={platform}
+                              platform={platform}
+                              published={false}
+                            />
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <Link href={`/dashboard/create-post?edit=${post.id}`}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-2 text-blue-600 border-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                            >
+                              <Edit className="h-4 w-4" />
+                              <span className="hidden sm:inline">Edit</span>
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeletePost(post.id)}
+                            className="gap-2 text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span className="hidden sm:inline">Delete</span>
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>

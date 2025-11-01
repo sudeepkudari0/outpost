@@ -46,12 +46,16 @@ interface CreatePostViewProps {
   profiles: Profile[];
   initialSelectedProfile?: string;
   initialAccounts: ConnectedAccount[];
+  editPostId?: string;
+  initialPostData?: any;
 }
 
 export default function CreatePostView({
   profiles,
   initialSelectedProfile,
   initialAccounts,
+  editPostId,
+  initialPostData,
 }: CreatePostViewProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -109,6 +113,113 @@ export default function CreatePostView({
     initialAccounts.forEach(a => (defaultSelected[a.id] = true));
     setSelected(defaultSelected);
   }, [initialAccounts]);
+
+  // Load post data when editing
+  useEffect(() => {
+    if (editPostId && initialPostData) {
+      // Populate form with existing post data
+      setSelectedProfileId(
+        initialPostData.profileId || initialSelectedProfile || ''
+      );
+
+      // Load accounts for the post's profile
+      if (initialPostData.profileId) {
+        client.social['get-connected-accounts']({
+          profileId: initialPostData.profileId,
+        })
+          .then((accountList: any) => {
+            const normalized: ConnectedAccount[] = (accountList || []).map(
+              (a: any) => ({
+                id: a.id,
+                platform: a.platform?.toLowerCase(),
+                username: a.username,
+                displayName: a.displayName,
+                connectedAt: a.connectedAt,
+                isActive: a.isActive,
+              })
+            );
+            setAccounts(normalized);
+
+            // Select the accounts that were used in the post
+            const selectedMap: Record<string, boolean> = {};
+            initialPostData.platforms?.forEach((p: any) => {
+              const account = normalized.find(a => a.id === p.accountId);
+              if (account) {
+                selectedMap[account.id] = true;
+              }
+            });
+            setSelected(selectedMap);
+          })
+          .catch(() => {
+            setAccounts([]);
+          });
+      }
+
+      // Extract platforms from post data
+      const postPlatforms =
+        initialPostData.platforms
+          ?.map((p: any) => p.platform?.toLowerCase())
+          .filter(Boolean) || [];
+      setTargetPlatforms(postPlatforms);
+
+      // Load content into bundle
+      if (initialPostData.content) {
+        if (typeof initialPostData.content === 'string') {
+          // If content is a string, create a simple bundle
+          const bundleObj: Bundle = {};
+          postPlatforms.forEach((platform: string) => {
+            bundleObj[platform] = initialPostData.content;
+          });
+          setBundle(bundleObj);
+        } else if (typeof initialPostData.content === 'object') {
+          // If content is an object, use it directly as bundle
+          setBundle(initialPostData.content);
+        }
+      }
+
+      // Load media items
+      if (initialPostData.mediaUrls && initialPostData.mediaUrls.length > 0) {
+        const mediaItems = initialPostData.mediaUrls.map((url: string) => ({
+          url,
+          type: url.match(/\.(mp4|mov|avi)$/i)
+            ? ('video' as const)
+            : ('image' as const),
+        }));
+        setUploadedMedia(mediaItems);
+
+        // Set platform media for each platform
+        const platformMediaObj: Record<string, any[]> = {};
+        postPlatforms.forEach((platform: string) => {
+          platformMediaObj[platform] = mediaItems;
+        });
+        setPlatformMedia(platformMediaObj);
+      }
+
+      // Set publishing option
+      const publishingOpt =
+        initialPostData.publishingOption?.toLowerCase() ||
+        (initialPostData.status === 'SCHEDULED'
+          ? 'schedule'
+          : initialPostData.status === 'PUBLISHED'
+            ? 'now'
+            : 'draft');
+      setPublishingOption(publishingOpt);
+
+      // Set scheduled date/time if scheduled
+      if (initialPostData.scheduledFor && publishingOpt === 'schedule') {
+        const scheduledDateObj = new Date(initialPostData.scheduledFor);
+        setScheduledDate(scheduledDateObj.toISOString().split('T')[0]);
+        setScheduledTime(
+          scheduledDateObj.toTimeString().split(' ')[0].slice(0, 5)
+        );
+      }
+
+      // Set timezone
+      if (initialPostData.timezone) {
+        setTimezone(initialPostData.timezone);
+      }
+    }
+  }, [editPostId, initialPostData, initialSelectedProfile]);
 
   useEffect(() => {
     if (!selectedProfileId) return;
@@ -657,32 +768,61 @@ export default function CreatePostView({
       // TODO: Update API to support per-platform media
       const allMediaItems = Object.values(platformMedia).flat();
 
-      const result = await client.posts.createOrSchedulePost({
-        profileId: selectedProfileId,
-        platforms,
-        content: bundle,
-        mediaItems: allMediaItems.length > 0 ? allMediaItems : uploadedMedia,
-        publishingOption: publishingOption as any,
-        scheduledFor,
-        timezone,
-      });
+      let result;
+      if (editPostId) {
+        // Update existing post
+        result = await client.posts.update({
+          id: editPostId,
+          profileId: selectedProfileId,
+          platforms,
+          content: bundle,
+          mediaItems: allMediaItems.length > 0 ? allMediaItems : uploadedMedia,
+          publishingOption: publishingOption as any,
+          scheduledFor,
+          timezone,
+        });
+      } else {
+        // Create new post
+        result = await client.posts.createOrSchedulePost({
+          profileId: selectedProfileId,
+          platforms,
+          content: bundle,
+          mediaItems: allMediaItems.length > 0 ? allMediaItems : uploadedMedia,
+          publishingOption: publishingOption as any,
+          scheduledFor,
+          timezone,
+        });
+      }
 
       if (result.success) {
-        let message = 'Posts published successfully!';
+        let message = editPostId
+          ? 'Post updated successfully!'
+          : 'Posts published successfully!';
         if (publishingOption === 'schedule')
-          message = 'Posts scheduled successfully!';
+          message = editPostId
+            ? 'Post rescheduled successfully!'
+            : 'Posts scheduled successfully!';
         else if (publishingOption === 'draft')
-          message = 'Posts saved as draft!';
+          message = editPostId
+            ? 'Post saved as draft!'
+            : 'Posts saved as draft!';
         toast({ title: 'Success', description: message });
-        setBundle(null);
-        setTopic('');
-        setImageFile(null);
-        setUploadedMedia([]);
-        setPlatformMedia({});
-        setGeneratedImageUrl(null);
-        setMediaPrompt('');
-        setScheduledDate('');
-        setScheduledTime('');
+
+        // Reset form only if creating new post
+        if (!editPostId) {
+          setBundle(null);
+          setTopic('');
+          setImageFile(null);
+          setUploadedMedia([]);
+          setPlatformMedia({});
+          setGeneratedImageUrl(null);
+          setMediaPrompt('');
+          setScheduledDate('');
+          setScheduledTime('');
+        } else {
+          // Redirect back to posts page after editing
+          window.location.href = '/dashboard/posts';
+        }
       } else {
         throw new Error('Failed to process posts');
       }

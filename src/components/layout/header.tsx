@@ -83,6 +83,8 @@ export function DashboardHeader({ user }: { user: User }) {
         return 'View and edit your scheduled and published content';
       case '/dashboard/settings':
         return 'Manage your account settings';
+      case '/dashboard/api-keys':
+        return 'Manage your API keys and integrations';
       default:
         return 'Dashboard';
     }
