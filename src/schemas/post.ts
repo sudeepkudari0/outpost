@@ -63,9 +63,17 @@ export const CreatePostFormSchema = z
       message: 'Date, time and timezone are required for scheduling',
     }
   )
-  .refine(data => !!data.bundle && Object.keys(data.bundle || {}).length > 0, {
-    path: ['bundle'],
-    message: 'Generate content before publishing',
-  });
+  .refine(
+    data => {
+      // For drafts, bundle is optional - allow saving without content
+      if (data.publishingOption === 'draft') return true;
+      // For publish/schedule, require bundle with content
+      return !!data.bundle && Object.keys(data.bundle || {}).length > 0;
+    },
+    {
+      path: ['bundle'],
+      message: 'Generate content before publishing',
+    }
+  );
 
 export type CreatePostFormValues = z.infer<typeof CreatePostFormSchema>;

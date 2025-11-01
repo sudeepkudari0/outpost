@@ -963,4 +963,46 @@ export const postsRouter = {
 
       return { success: true, id: input.id };
     }),
+
+  delete: authed
+    .route({
+      method: 'DELETE',
+      path: '/posts/delete',
+      summary: 'Delete a post',
+      tags: ['Posts'],
+    })
+    .input(
+      z.object({
+        id: z.string().min(1),
+      })
+    )
+    .output(z.object({ success: z.boolean() }))
+    .handler(async ({ input, context }) => {
+      const { prisma, user } = context;
+
+      if (!prisma || !user?.id) {
+        throw new ORPCError('UNAUTHORIZED', { message: 'Not authenticated' });
+      }
+
+      // Find the post and verify ownership
+      const post = await prisma.post.findFirst({
+        where: {
+          id: input.id,
+          userId: user.id,
+        },
+      });
+
+      if (!post) {
+        throw new ORPCError('NOT_FOUND', {
+          message: 'Post not found',
+        });
+      }
+
+      // Delete the post (cascade will delete post platforms)
+      await prisma.post.delete({
+        where: { id: input.id },
+      });
+
+      return { success: true };
+    }),
 };

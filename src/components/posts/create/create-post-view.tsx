@@ -733,21 +733,23 @@ export default function CreatePostView({
       return;
     }
 
-    // Validate media requirements per platform
-    const selectedPlatforms = selectedAccountIds
-      .map(id => accounts.find(a => a.id === id)?.platform?.toLowerCase())
-      .filter(Boolean) as string[];
+    // Validate media requirements per platform (skip for drafts)
+    if (publishingOption !== 'draft') {
+      const selectedPlatforms = selectedAccountIds
+        .map(id => accounts.find(a => a.id === id)?.platform?.toLowerCase())
+        .filter(Boolean) as string[];
 
-    for (const platform of selectedPlatforms) {
-      if (platform === 'instagram') {
-        const platformMediaItems = platformMedia[platform] || [];
-        if (platformMediaItems.length === 0) {
-          toast({
-            title: 'Instagram requires media',
-            description: `Please upload at least one image or video for Instagram (${platform}).`,
-            variant: 'destructive',
-          });
-          return;
+      for (const platform of selectedPlatforms) {
+        if (platform === 'instagram') {
+          const platformMediaItems = platformMedia[platform] || [];
+          if (platformMediaItems.length === 0) {
+            toast({
+              title: 'Instagram requires media',
+              description: `Please upload at least one image or video for Instagram (${platform}).`,
+              variant: 'destructive',
+            });
+            return;
+          }
         }
       }
     }
@@ -768,6 +770,9 @@ export default function CreatePostView({
       // TODO: Update API to support per-platform media
       const allMediaItems = Object.values(platformMedia).flat();
 
+      // For drafts, use empty object if no content generated yet
+      const postContent = bundle || {};
+
       let result;
       if (editPostId) {
         // Update existing post
@@ -775,7 +780,7 @@ export default function CreatePostView({
           id: editPostId,
           profileId: selectedProfileId,
           platforms,
-          content: bundle,
+          content: postContent,
           mediaItems: allMediaItems.length > 0 ? allMediaItems : uploadedMedia,
           publishingOption: publishingOption as any,
           scheduledFor,
@@ -786,7 +791,7 @@ export default function CreatePostView({
         result = await client.posts.createOrSchedulePost({
           profileId: selectedProfileId,
           platforms,
-          content: bundle,
+          content: postContent,
           mediaItems: allMediaItems.length > 0 ? allMediaItems : uploadedMedia,
           publishingOption: publishingOption as any,
           scheduledFor,
@@ -958,10 +963,13 @@ export default function CreatePostView({
               setTimezone={setTimezone}
               onSubmit={handlePost}
               canSubmit={
-                !!bundle &&
                 selectedAccountIds.length > 0 &&
-                (publishingOption !== 'schedule' ||
-                  (!!scheduledDate && !!scheduledTime))
+                // For drafts, bundle is optional
+                (publishingOption === 'draft' ||
+                  // For publish/schedule, require bundle
+                  (!!bundle &&
+                    (publishingOption !== 'schedule' ||
+                      (!!scheduledDate && !!scheduledTime))))
               }
             />
           </div>

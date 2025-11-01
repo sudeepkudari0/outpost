@@ -3,6 +3,16 @@
 import dayjs from 'dayjs';
 import type React from 'react';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { client } from '@/lib/orpc/client';
 import {
   AlertCircle,
   Calendar,
@@ -39,6 +50,29 @@ export type UiPost = {
   platforms: string[];
   status: string;
   image?: string | null;
+};
+
+// Extract display content from post content (handles both string and object formats)
+const getDisplayContent = (content: string): string => {
+  try {
+    // Try to parse if it's a JSON string
+    const parsed = JSON.parse(content);
+    if (typeof parsed === 'object' && parsed !== null) {
+      // If it's an object with platform keys, extract the first platform's content
+      const platformContents = Object.values(parsed).filter(
+        v => typeof v === 'string' && v.trim().length > 0
+      );
+      if (platformContents.length > 0) {
+        // If multiple platforms, show the first one
+        return platformContents[0] as string;
+      }
+      return JSON.stringify(parsed); // Fallback to JSON if no valid string content
+    }
+    return String(parsed);
+  } catch {
+    // If not JSON, return as-is (already a string)
+    return content;
+  }
 };
 
 const getDaysInMonth = (date: Date) => {
@@ -145,7 +179,7 @@ const CalendarView = ({ posts }: { posts: any[] }) => {
                           : 'bg-primary/10 text-primary'
                       }`}
                     >
-                      {post.content.substring(0, 20)}...
+                      {getDisplayContent(post.content).substring(0, 20)}...
                     </div>
                   ))}
                   {dayPosts.length > 2 && (
@@ -225,6 +259,9 @@ export default function PostsView({
   const [expandedPosts, setExpandedPosts] = useState<Record<string, boolean>>(
     {}
   );
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [postToDelete, setPostToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
   const getPostDate = (post: UiPost) => {
@@ -386,25 +423,38 @@ export default function PostsView({
     }));
   };
 
-  const handleDeletePost = async (postId: string) => {
-    if (!confirm('Are you sure you want to delete this post?')) {
-      return;
-    }
+  const handleDeleteClick = (postId: string) => {
+    setPostToDelete(postId);
+    setDeleteDialogOpen(true);
+  };
 
+  const handleDeletePost = async () => {
+    if (!postToDelete) return;
+
+    setIsDeleting(true);
     try {
-      // TODO: Implement delete endpoint
-      // For now, just remove from local state
-      setPosts(prev => prev.filter(p => p.id !== postId));
-      toast({
-        title: 'Post deleted',
-        description: 'The post has been deleted successfully',
-      });
+      const result = await client.posts.delete({ id: postToDelete });
+
+      if (result.success) {
+        // Remove from local state
+        setPosts(prev => prev.filter(p => p.id !== postToDelete));
+        toast({
+          title: 'Post deleted',
+          description: 'The post has been deleted successfully',
+        });
+        setDeleteDialogOpen(false);
+        setPostToDelete(null);
+      } else {
+        throw new Error('Delete failed');
+      }
     } catch (error) {
       toast({
         title: 'Error',
         description: 'Failed to delete post',
         variant: 'destructive',
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -596,22 +646,32 @@ export default function PostsView({
                           )}
                         </div>
                         <div className="text-sm lg:text-base text-foreground leading-relaxed break-words">
-                          <p>
-                            {expandedPosts[post.id] ||
-                            post.content.length <= CONTENT_PREVIEW_LENGTH
-                              ? post.content
-                              : `${post.content.substring(0, CONTENT_PREVIEW_LENGTH)}...`}
-                          </p>
-                          {post.content.length > CONTENT_PREVIEW_LENGTH && (
-                            <button
-                              onClick={() => toggleExpand(post.id)}
-                              className="text-primary hover:text-primary/80 mt-1 text-sm underline cursor-pointer"
-                            >
-                              {expandedPosts[post.id]
-                                ? 'show less'
-                                : 'show more'}
-                            </button>
-                          )}
+                          {(() => {
+                            const displayContent = getDisplayContent(
+                              post.content
+                            );
+                            const shouldTruncate =
+                              displayContent.length > CONTENT_PREVIEW_LENGTH;
+                            const isExpanded = expandedPosts[post.id];
+
+                            return (
+                              <>
+                                <p>
+                                  {isExpanded || !shouldTruncate
+                                    ? displayContent
+                                    : `${displayContent.substring(0, CONTENT_PREVIEW_LENGTH)}...`}
+                                </p>
+                                {shouldTruncate && (
+                                  <button
+                                    onClick={() => toggleExpand(post.id)}
+                                    className="text-primary hover:text-primary/80 mt-1 text-sm underline cursor-pointer"
+                                  >
+                                    {isExpanded ? 'show less' : 'show more'}
+                                  </button>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
 
@@ -660,7 +720,7 @@ export default function PostsView({
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleDeletePost(post.id)}
+                            onClick={() => handleDeleteClick(post.id)}
                             className="gap-2 text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -677,6 +737,29 @@ export default function PostsView({
       ) : (
         <CalendarView posts={filteredPosts} />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Post</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this post? This action cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePost}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
