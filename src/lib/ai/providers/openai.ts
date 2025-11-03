@@ -12,13 +12,12 @@ export async function generateTextWithOpenAI(
   const { apiKey, systemPrompt, prompt, json, model } = params;
 
   const body = {
-    model: model || 'gpt-4o-mini',
+    model: model || 'gpt-5',
     messages: [
       ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
       { role: 'user', content: prompt },
     ],
     ...(json ? { response_format: { type: 'json_object' } } : {}),
-    temperature: 0.7,
   };
 
   const res = await fetch('https://api.openai.com/v1/chat/completions', {

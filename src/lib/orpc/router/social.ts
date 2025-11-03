@@ -12,6 +12,7 @@ import {
   generateOAuthState,
   saveConnectedAccount,
 } from '@/lib/meta-oauth';
+import { createRedditOAuthService } from '@/lib/reddit-oauth';
 import { getTierLimits } from '@/lib/subscription';
 import {
   createTwitterOAuthService,
@@ -33,6 +34,7 @@ const PlatformEnum = z.enum([
   'TIKTOK',
   'YOUTUBE',
   'THREADS',
+  'REDDIT',
 ]);
 
 const CreateProfileSchema = z.object({
@@ -478,6 +480,12 @@ export const socialRouter = {
         return { authUrl, state: stateWithPkce };
       }
 
+      if (platform === 'REDDIT') {
+        const reddit = createRedditOAuthService(redirectUri);
+        const authUrl = reddit.getAuthUrl(encodedState);
+        return { authUrl, state: encodedState };
+      }
+
       throw new ORPCError('BAD_REQUEST', {
         message: `Platform ${platform} is not supported yet.`,
       });
@@ -727,6 +735,32 @@ export const socialRouter = {
           username: me.username,
           displayName: me.name,
           profileImageUrl: me.profile_image_url,
+          accessToken,
+          refreshToken: token.refresh_token,
+          tokenExpiresAt: expiresAt,
+          platformData: { token_type: token.token_type, scope: token.scope },
+        });
+
+        return { success: true, accounts: [account] };
+      } else if (platform === 'REDDIT') {
+        const reddit = createRedditOAuthService(redirectUri);
+        const token = await reddit.exchangeCodeForToken(code);
+        const accessToken = token.access_token;
+        const expiresAt = token.expires_in
+          ? new Date(Date.now() + token.expires_in * 1000)
+          : undefined;
+
+        const me = await reddit.getUserMe(accessToken);
+        const displayName = me.name;
+        const avatar = me.icon_img || me.snoovatar_img;
+
+        const account = await saveConnectedAccount({
+          profileId,
+          platform: 'REDDIT' as Platform,
+          platformUserId: me.id,
+          username: displayName,
+          displayName,
+          profileImageUrl: avatar,
           accessToken,
           refreshToken: token.refresh_token,
           tokenExpiresAt: expiresAt,

@@ -175,6 +175,7 @@ enum Platform {
   TIKTOK
   YOUTUBE
   THREADS
+  REDDIT
 }
 
 model Post {

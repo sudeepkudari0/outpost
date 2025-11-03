@@ -377,6 +377,8 @@ export default function CreatePostView({
 
       // Generate content for each selected platform
       const newBundle: Bundle = {};
+      const failures: string[] = [];
+      let successCount = 0;
 
       for (const platform of targetPlatforms) {
         try {
@@ -391,34 +393,54 @@ export default function CreatePostView({
           // Merge the response into the bundle
           if (data && typeof data === 'object') {
             Object.assign(newBundle, data);
+            successCount += 1;
           } else {
             // If response is just a string, use the platform as key
             newBundle[platform] = data;
+            successCount += 1;
           }
         } catch (e: any) {
           // If one platform fails, continue with others
           console.error(`Failed to generate content for ${platform}:`, e);
           // Add error placeholder for this platform
-          newBundle[platform] =
-            `Failed to generate content for ${platform}. Please try again.`;
+          failures.push(platform);
         }
       }
 
-      setBundle(newBundle);
-      // Initialize empty media arrays for each platform
-      const initialMedia: Record<string, any[]> = {};
-      Object.keys(newBundle).forEach(platform => {
-        initialMedia[platform] = [];
-      });
-      setPlatformMedia(initialMedia);
-      await queryClient.invalidateQueries({ queryKey: ['quota', 'status'] });
+      if (successCount > 0) {
+        setBundle(newBundle);
+        // Initialize empty media arrays for each platform
+        const initialMedia: Record<string, any[]> = {};
+        Object.keys(newBundle).forEach(platform => {
+          initialMedia[platform] = [];
+        });
+        setPlatformMedia(initialMedia);
+        await queryClient.invalidateQueries({ queryKey: ['quota', 'status'] });
 
-      const successCount = Object.keys(newBundle).length;
-      const platformList = targetPlatforms.map(p => p.toUpperCase()).join(', ');
-      toast({
-        title: 'Success',
-        description: `Content generated for ${successCount} ${successCount === 1 ? 'platform' : 'platforms'}: ${platformList}!`,
-      });
+        const platformList = Object.keys(newBundle)
+          .map(p => p.toUpperCase())
+          .join(', ');
+        toast({
+          title: 'Success',
+          description: `Content generated for ${successCount} ${successCount === 1 ? 'platform' : 'platforms'}: ${platformList}.`,
+        });
+
+        if (failures.length) {
+          toast({
+            title: 'Some platforms failed',
+            description: failures.map(p => p.toUpperCase()).join(', '),
+            variant: 'destructive',
+          });
+        }
+      } else {
+        // No success — stay on composer and show one clear error
+        toast({
+          title: 'Generation failed',
+          description:
+            'Could not generate content. Try again or add your own AI key in Dashboard → API Keys.',
+          variant: 'destructive',
+        });
+      }
     } catch (e: any) {
       const errMessage =
         e?.message ||

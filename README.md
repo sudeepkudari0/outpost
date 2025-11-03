@@ -35,88 +35,17 @@ An AI-powered social media management application that generates platform-specif
 
 Create a `.env.local` file in the root directory:
 
-\`\`\`env
+```env
 # OpenAI Configuration
 OPENAI_API_KEY=your_openai_api_key
-\`\`\`
 
+# Base URL (used to build OAuth redirects)
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
 
-### 2. Installation
-
-\`\`\`bash
-# Install dependencies
-npm install
-# or
-pnpm install
-
-# Start development server
-npm run dev
-# or
-pnpm dev
-\`\`\`
-
-### 3. Connect Social Media Accounts
-
-1. Navigate to `/dashboard/create-post`
-2. Use the "Connect" buttons to link your social media accounts through Late's OAuth flow
-3. Each platform will redirect you through their respective authorization process
-
-## Usage
-
-### Creating and Publishing Posts
-
-1. **Navigate to Dashboard**: Go to `/dashboard/create-post`
-
-2. **Generate Content**:
-   - Enter your topic/prompt in the text area
-   - Optionally add a link to include in the post
-   - Select the tone (Professional, Friendly, Authoritative, Concise)
-   - Click "Generate AI Copy"
-
-3. **Upload Media** (Optional):
-   - Select an image file
-   - Click "Upload to Late" to ```md file="README.md"
-# Social Media Composer + Scheduler
-
-An AI-powered social media management application that generates platform-specific content using OpenAI and publishes/schedules posts across multiple social media platforms using the Late API.
-
-## Features
-
-- **AI Content Generation**: Create platform-optimized copy for LinkedIn, Instagram, Twitter/X, and Facebook
-- **Multi-Platform Publishing**: Connect and post to multiple social media accounts simultaneously
-- **Media Upload**: Upload images and media files through Late's API
-- **Scheduling**: Publish immediately or schedule posts for optimal engagement times using cron-job.org
-- **Account Management**: Connect and manage multiple social media accounts per platform
-
-## Supported Platforms
-
-- Instagram
-- LinkedIn
-- Facebook
-- Twitter/X (requires BYOK - Bring Your Own Keys)
-- TikTok
-- YouTube
-- Threads
-
-## Tech Stack
-
-- **Framework**: Next.js 15 (App Router)
-- **Runtime**: Vercel Edge Functions
-- **AI**: OpenAI GPT-4o-mini for content generation
-- **Social Media API**: Late API for connections and publishing
-- **Styling**: Tailwind CSS
-- **UI Components**: shadcn/ui
-
-## Setup
-
-### 1. Environment Variables
-
-Create a `.env.local` file in the root directory:
-
-\`\`\`env
-# OpenAI Configuration
-OPENAI_API_KEY=your_openai_api_key
-\`\`\`
+# Reddit OAuth (create an app at https://www.reddit.com/prefs/apps)
+REDDIT_CLIENT_ID=your_reddit_client_id
+REDDIT_CLIENT_SECRET=your_reddit_client_secret
+```
 
 
 ### 2. Installation

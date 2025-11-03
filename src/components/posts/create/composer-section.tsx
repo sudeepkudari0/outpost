@@ -46,6 +46,7 @@ const PLATFORMS = [
   },
   { value: 'facebook', label: 'Facebook', icon: '/images/logos/facebook.png' },
   { value: 'linkedin', label: 'LinkedIn', icon: '/images/logos/linkedin.png' },
+  { value: 'reddit', label: 'Reddit', icon: '/images/logos/reddit.png' },
 ];
 
 export function ComposerSection({

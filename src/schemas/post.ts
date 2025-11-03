@@ -14,6 +14,7 @@ export const CreatePostFormSchema = z
       'tiktok',
       'threads',
       'youtube',
+      'reddit',
     ]),
     contentType: z.enum([
       'promotional',

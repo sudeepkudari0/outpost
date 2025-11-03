@@ -85,6 +85,7 @@ export const postsRouter = {
         platform: z
           .enum([
             'instagram',
+            'reddit',
             'facebook',
             'linkedin',
             'twitter',
@@ -161,6 +162,8 @@ export const postsRouter = {
           'Professional tone, industry insights, thought leadership. Longer form content is preferred. Include relevant professional hashtags.',
         twitter:
           'Concise, punchy content under 280 characters. Use trending hashtags, be timely and engaging. Thread format if needed.',
+        reddit:
+          'Write as a helpful, authentic Reddit comment or post. Avoid marketing fluff. Use clear paragraphs, actionable details, and community-friendly tone. No emojis. No hashtags.',
         tiktok:
           'Trendy, youth-focused, video description style. Use popular hashtags and trending sounds references. Keep it fun and energetic.',
         threads:
@@ -190,13 +193,59 @@ export const postsRouter = {
         contentTypeGuidelines[input.contentType]
       }\n\nCRITICAL FORMAT RULES:\n- Use plain text only. Do NOT use any markdown (no **bold**, no headings with #, no bullet symbols like -, *, •).\n- Do NOT include bracketed placeholders like [Product Name] or [Discount Offer]; replace with concrete, generic wording.\n- If you include hashtags, format them as #Word with spaces between each hashtag. Do NOT use 'hashtag#Word'.\n- Keep links as plain text or generic CTAs without markdown.\n\nReturn JSON with a single key "${input.platform}" containing only the plain-text content for this platform.`;
 
-      const content = await generateAiText({
-        userId: user.id,
-        systemPrompt,
-        prompt: input.prompt,
-        json: true,
-        aiConfig: input.aiConfig,
-      });
+      let content: string | undefined;
+      try {
+        content = await generateAiText({
+          userId: user.id,
+          systemPrompt,
+          prompt: input.prompt,
+          json: true,
+          aiConfig: input.aiConfig,
+        });
+      } catch (err: any) {
+        const msg = String(err?.message || err || '');
+        const isGeminiOverloaded =
+          msg.includes('Gemini error') &&
+          (msg.includes('503') ||
+            msg.includes('UNAVAILABLE') ||
+            msg.toLowerCase().includes('overloaded'));
+        // Fallback to OpenAI only if BYOK is enabled with a user key
+        if (isGeminiOverloaded) {
+          const canUseBYOKOpenAI = !!(
+            input.aiConfig?.useUserKey &&
+            (input.aiConfig?.provider === 'openai' ||
+              !input.aiConfig?.provider) &&
+            input.aiConfig?.apiKey
+          );
+          if (canUseBYOKOpenAI) {
+            try {
+              content = await generateAiText({
+                userId: user.id,
+                systemPrompt,
+                prompt: input.prompt,
+                json: true,
+                aiConfig: { ...(input.aiConfig || {}), provider: 'openai' },
+              });
+            } catch (fallbackErr: any) {
+              throw new ORPCError('BAD_REQUEST', {
+                message:
+                  fallbackErr?.message ||
+                  'AI provider temporarily unavailable. Please try again.',
+              });
+            }
+          } else {
+            // No safe fallback (would hit app key quota/plan). Return a friendly message.
+            throw new ORPCError('BAD_REQUEST', {
+              message:
+                'AI is temporarily unavailable. Add your own AI key in Dashboard → API Keys or try again shortly.',
+            });
+          }
+        } else {
+          throw new ORPCError('BAD_REQUEST', {
+            message: err?.message || 'Failed to generate content',
+          });
+        }
+      }
       if (!content) {
         throw new ORPCError('INTERNAL_SERVER_ERROR', {
           message: 'No content generated',
@@ -378,6 +427,8 @@ export const postsRouter = {
             return Platform.TWITTER;
           case 'LINKEDIN':
             return Platform.LINKEDIN;
+          case 'REDDIT':
+            return Platform.REDDIT;
           case 'TIKTOK':
             return Platform.TIKTOK;
           case 'YOUTUBE':
@@ -895,6 +946,8 @@ export const postsRouter = {
             return Platform.TWITTER;
           case 'LINKEDIN':
             return Platform.LINKEDIN;
+          case 'REDDIT':
+            return Platform.REDDIT;
           case 'TIKTOK':
             return Platform.TIKTOK;
           case 'YOUTUBE':
