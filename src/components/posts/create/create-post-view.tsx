@@ -368,9 +368,7 @@ export default function CreatePostView({
               provider === 'openai' ? parsed.openaiKey : parsed.geminiKey;
             if (apiKey) {
               const model =
-                provider === 'openai'
-                  ? 'gpt-4o-mini'
-                  : 'models/gemini-1.5-flash';
+                provider === 'openai' ? 'gpt-5' : 'models/gemini-2.5-pro';
               aiConfig = { useUserKey: true, provider, apiKey, model };
             }
           }
@@ -857,7 +855,7 @@ export default function CreatePostView({
   }
 
   return (
-    <div className="container mx-auto p-2">
+    <div className="">
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-2 space-y-6">
           {/* Content Generation - Only show when no bundle exists */}

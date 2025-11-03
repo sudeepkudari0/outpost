@@ -25,8 +25,8 @@ async function getInitialData(editPostId?: string) {
 
     return { profiles, selectedProfile, accounts, postData };
   } catch (err) {
-    return { profiles: [], selectedProfile: '', accounts: [], postData: null };
     console.error('error', err);
+    return { profiles: [], selectedProfile: '', accounts: [], postData: null };
   }
 }
 

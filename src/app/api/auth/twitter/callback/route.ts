@@ -12,13 +12,15 @@ export async function GET(request: NextRequest) {
     const code = searchParams.get('code');
     const state = searchParams.get('state');
     const error = searchParams.get('error');
+    const errorDescription = searchParams.get('error_description');
 
     // Handle OAuth error
     if (error) {
-      console.error('Twitter OAuth error:', error);
+      console.error('Twitter OAuth error:', { error, errorDescription });
+      const message = errorDescription ? `${error}:${errorDescription}` : error;
       return NextResponse.redirect(
         new URL(
-          `/dashboard/connections?error=${encodeURIComponent(error)}`,
+          `/dashboard/connections?error=${encodeURIComponent(message)}`,
           request.url
         )
       );
@@ -41,11 +43,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { codeVerifier, redirectUri } = stateData;
+    const { codeVerifier, profileId } = stateData as {
+      codeVerifier?: string;
+      profileId?: string;
+    };
 
-    if (!codeVerifier || !redirectUri) {
+    if (!codeVerifier) {
       return NextResponse.redirect(
         new URL('/dashboard/connections?error=missing_verifier', request.url)
+      );
+    }
+    if (!profileId) {
+      return NextResponse.redirect(
+        new URL('/dashboard/connections?error=missing_profile', request.url)
       );
     }
 
@@ -57,7 +67,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Create Twitter OAuth service
+    // Create Twitter OAuth service (recompute redirect URI deterministically)
+    const baseRaw = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const redirectUri = `${baseRaw}/api/auth/twitter/callback`;
     const twitterOAuth = createTwitterOAuthService(redirectUri);
 
     // Exchange code for token
@@ -76,7 +88,7 @@ export async function GET(request: NextRequest) {
 
     // Save Twitter account to database
     await saveTwitterAccount({
-      profileId: session.user.id,
+      profileId,
       platform: 'TWITTER' as Platform,
       platformUserId: userInfo.id,
       username: userInfo.username,
