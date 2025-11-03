@@ -12,6 +12,7 @@ export type AiConfig = {
   useUserKey?: boolean;
   provider?: AiProvider;
   apiKey?: string; // only when useUserKey is true; never persist server-side
+  model?: string; // optional model override for selected provider
 };
 
 function resolveProvider(config?: AiConfig): AiProvider {
@@ -57,6 +58,7 @@ export async function generateText(options: {
       systemPrompt,
       prompt,
       json: !!json,
+      model: aiConfig?.model,
     });
   } else {
     content = await generateTextWithGemini({
@@ -64,6 +66,7 @@ export async function generateText(options: {
       systemPrompt,
       prompt,
       json: !!json,
+      model: aiConfig?.model,
     });
   }
 

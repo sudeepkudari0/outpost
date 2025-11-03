@@ -161,10 +161,13 @@ function QuotaWidget() {
           : null;
       if (!raw) return;
       const parsed = JSON.parse(raw);
-      const key = parsed?.key as string | undefined;
-      const provider = parsed?.provider === 'gemini' ? 'gemini' : 'openai';
-      setHasBYOK(!!key);
-      setByokProvider(!!key ? provider : null);
+      const openaiKey = parsed?.openaiKey as string | undefined;
+      const geminiKey = parsed?.geminiKey as string | undefined;
+      const has = !!openaiKey || !!geminiKey;
+      // Prefer showing OpenAI if both present
+      const provider = openaiKey ? 'openai' : geminiKey ? 'gemini' : null;
+      setHasBYOK(has);
+      setByokProvider(has ? provider : null);
     } catch {}
   }, []);
 

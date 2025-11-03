@@ -10,6 +10,14 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { client } from '@/lib/orpc/client';
 import { CheckIcon } from 'lucide-react';
@@ -55,6 +63,14 @@ export function ComposerSection({
   const [aiDisabled, setAiDisabled] = useState(false);
   const [aiBanner, setAiBanner] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
+  // BYOK selection controls
+  const [useUserKey, setUseUserKey] = useState(false);
+  const [hasOpenAI, setHasOpenAI] = useState(false);
+  const [hasGemini, setHasGemini] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<'openai' | 'gemini'>(
+    'openai'
+  );
+  const [planTier, setPlanTier] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -62,12 +78,26 @@ export function ComposerSection({
       try {
         const quota = await client.quota.status({});
         const tier = quota?.tier;
+        setPlanTier(tier || null);
         let localAi: any = undefined;
         try {
           const raw = localStorage.getItem('aiSettings');
           localAi = raw ? JSON.parse(raw) : undefined;
         } catch {}
-        const hasBYOK = !!localAi?.key;
+        const hasBYOK = !!localAi?.openaiKey || !!localAi?.geminiKey;
+        setHasOpenAI(!!localAi?.openaiKey);
+        setHasGemini(!!localAi?.geminiKey);
+        // Load previous selection if present, else default
+        try {
+          const selRaw = localStorage.getItem('aiSelection');
+          if (selRaw) {
+            const sel = JSON.parse(selRaw);
+            if (typeof sel.useUserKey === 'boolean')
+              setUseUserKey(sel.useUserKey);
+            if (sel.provider === 'openai' || sel.provider === 'gemini')
+              setSelectedProvider(sel.provider);
+          }
+        } catch {}
         if (tier === 'FREE' && !hasBYOK) {
           if (!mounted) return;
           setAiDisabled(true);
@@ -101,6 +131,16 @@ export function ComposerSection({
     };
   }, []);
 
+  // Persist selection in localStorage so parent can read
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        'aiSelection',
+        JSON.stringify({ useUserKey, provider: selectedProvider })
+      );
+    } catch {}
+  }, [useUserKey, selectedProvider]);
+
   return (
     <Card>
       <CardHeader>
@@ -110,12 +150,24 @@ export function ComposerSection({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
-        {aiBanner && (
-          <div className="text-sm rounded-md border border-yellow-300/50 bg-yellow-50 dark:bg-yellow-950/30 text-yellow-800 dark:text-yellow-200 p-3">
-            {aiBanner}{' '}
-            <a href="/dashboard/api-keys" className="underline">
-              Open API Keys
+        {/* Additional gating messages */}
+        {planTier === 'FREE' && !useUserKey && (
+          <div className="text-sm rounded-md border border-red-300/50 bg-red-50 dark:bg-red-950/30 text-red-800 dark:text-red-200 p-3">
+            On the Free plan, app AI keys are not available. Switch to "My key"
+            and add your OpenAI or Gemini key in{' '}
+            <a className="underline" href="/dashboard/api-keys">
+              API Keys
+            </a>{' '}
+            to generate content.
+          </div>
+        )}
+        {useUserKey && !hasOpenAI && !hasGemini && (
+          <div className="text-sm rounded-md border border-red-300/50 bg-red-50 dark:bg-red-950/30 text-red-800 dark:text-red-200 p-3">
+            No BYOK found. Add your OpenAI or Gemini key first in{' '}
+            <a className="underline" href="/dashboard/api-keys">
+              API Keys
             </a>
+            .
           </div>
         )}
         <div className="space-y-2">
@@ -130,11 +182,51 @@ export function ComposerSection({
           />
         </div>
 
+        {/* AI key source */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-sm md:text-base">AI key source</Label>
+              <p className="text-xs text-muted-foreground">
+                {useUserKey
+                  ? 'Using your saved key (BYOK).'
+                  : 'Using app key (counts toward your plan).'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs">App key</span>
+              <Switch checked={useUserKey} onCheckedChange={setUseUserKey} />
+              <span className="text-xs">My key</span>
+            </div>
+          </div>
+          {useUserKey && (
+            <div className="flex items-center gap-2">
+              <Label className="text-sm">Provider</Label>
+              <Select
+                value={selectedProvider}
+                onValueChange={v => setSelectedProvider(v as any)}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Choose provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="openai" disabled={!hasOpenAI}>
+                    OpenAI {hasOpenAI ? '' : '(add key in API Keys)'}
+                  </SelectItem>
+                  <SelectItem value="gemini" disabled={!hasGemini}>
+                    Gemini {hasGemini ? '' : '(add key in API Keys)'}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label className="text-sm md:text-base">Target Platforms</Label>
-              <p className="text-sm text-black/80">
+              <p className="text-sm text-black/80 dark:text-white/80">
                 Select one or more platforms to generate content for
               </p>
             </div>
@@ -238,7 +330,9 @@ export function ComposerSection({
             checking ||
             targetPlatforms.length === 0 ||
             !contentType ||
-            !tone
+            !tone ||
+            (planTier === 'FREE' && !useUserKey) ||
+            (useUserKey && !hasOpenAI && !hasGemini)
           }
           className="w-full"
           size="lg"

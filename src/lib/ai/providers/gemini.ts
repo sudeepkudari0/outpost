@@ -3,21 +3,20 @@ type TextParams = {
   systemPrompt?: string;
   prompt: string;
   json: boolean;
+  model?: string;
 };
 
 // Minimal Gemini 1.5 text generation via REST
 export async function generateTextWithGemini(
   params: TextParams
 ): Promise<string> {
-  const { apiKey, systemPrompt, prompt, json } = params;
+  const { apiKey, systemPrompt, prompt, json, model } = params;
 
-  const model = 'models/gemini-1.5-flash';
-  const url = `https://generativelanguage.googleapis.com/v1beta/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const modelPath = model || 'models/gemini-2.5-pro';
+  const url = `https://generativelanguage.googleapis.com/v1beta/${modelPath}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
-  const contents: any[] = [];
-  if (systemPrompt)
-    contents.push({ role: 'system', parts: [{ text: systemPrompt }] });
-  contents.push({ role: 'user', parts: [{ text: prompt }] });
+  const mergedPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
+  const contents: any[] = [{ role: 'user', parts: [{ text: mergedPrompt }] }];
 
   // Gemini does not have the same response_format; we can instruct JSON via system
   const body: any = {

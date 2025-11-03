@@ -108,6 +108,7 @@ export const postsRouter = {
             useUserKey: z.boolean().optional(),
             provider: z.enum(['openai', 'gemini']).optional(),
             apiKey: z.string().optional(),
+            model: z.string().optional(),
           })
           .optional(),
       })
@@ -227,6 +228,7 @@ export const postsRouter = {
             useUserKey: z.boolean().optional(),
             provider: z.enum(['openai', 'gemini']).optional(),
             apiKey: z.string().optional(),
+            model: z.string().optional(),
           })
           .optional(),
       })

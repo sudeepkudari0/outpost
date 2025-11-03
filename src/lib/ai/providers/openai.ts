@@ -3,15 +3,16 @@ type TextParams = {
   systemPrompt?: string;
   prompt: string;
   json: boolean;
+  model?: string;
 };
 
 export async function generateTextWithOpenAI(
   params: TextParams
 ): Promise<string> {
-  const { apiKey, systemPrompt, prompt, json } = params;
+  const { apiKey, systemPrompt, prompt, json, model } = params;
 
   const body = {
-    model: 'gpt-4o-mini',
+    model: model || 'gpt-4o-mini',
     messages: [
       ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
       { role: 'user', content: prompt },

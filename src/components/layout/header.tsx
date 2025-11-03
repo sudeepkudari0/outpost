@@ -64,6 +64,10 @@ export function DashboardHeader({ user }: { user: User }) {
         return 'Posts';
       case '/dashboard/settings':
         return 'Settings';
+      case '/dashboard/api-keys':
+        return 'API Key Management';
+      case '/dashboard/team':
+        return 'Team';
       default: {
         const t = rawTitle;
         return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
@@ -84,7 +88,7 @@ export function DashboardHeader({ user }: { user: User }) {
       case '/dashboard/settings':
         return 'Manage your account settings';
       case '/dashboard/api-keys':
-        return 'Manage your API keys and integrations';
+        return 'Manage your AI provider keys and application API credentials';
       case '/dashboard/team':
         return 'Manage your team and invites';
       default:

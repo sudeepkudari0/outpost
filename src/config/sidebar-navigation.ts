@@ -33,6 +33,11 @@ export function getDashboardSidebarNavigation(
           icon: 'LucideLink',
         },
         { name: 'Team', href: '/dashboard/team', icon: 'Users' },
+        {
+          name: 'API Keys',
+          href: '/dashboard/api-keys',
+          icon: 'Key',
+        },
       ],
     },
     {
@@ -47,12 +52,6 @@ export function getDashboardSidebarNavigation(
       ],
     },
   ];
-
-  // Add developer section for all roles
-  const developer: SidebarNavSection = {
-    title: 'DEVELOPER',
-    items: [{ name: 'API Access', href: '/dashboard/api-keys', icon: 'Key' }],
-  };
 
   if (role === 'ADMIN') {
     // Admins: hide Posts, Connections, Team, Create Post, and Developer
@@ -82,5 +81,5 @@ export function getDashboardSidebarNavigation(
     return sections;
   }
 
-  return [base[0], developer, base[1]];
+  return [base[0], base[1]];
 }

@@ -318,7 +318,7 @@ export default function CreatePostView({
           const raw = localStorage.getItem('aiSettings');
           localAi = raw ? JSON.parse(raw) : undefined;
         } catch {}
-        const hasBYOK = !!localAi?.key;
+        const hasBYOK = !!localAi?.openaiKey || !!localAi?.geminiKey;
         if (tier === 'FREE' && !hasBYOK) {
           toast({
             title: 'AI unavailable on Free',
@@ -356,13 +356,24 @@ export default function CreatePostView({
       let aiConfig: any = undefined;
       try {
         const raw = localStorage.getItem('aiSettings');
+        const selRaw = localStorage.getItem('aiSelection');
+        const selection = selRaw ? JSON.parse(selRaw) : undefined;
         if (raw) {
           const parsed = JSON.parse(raw);
-          aiConfig = {
-            useUserKey: !!parsed.key,
-            provider: parsed.provider === 'gemini' ? 'gemini' : 'openai',
-            apiKey: parsed.key,
-          };
+          const wantsBYOK = !!selection?.useUserKey;
+          if (wantsBYOK) {
+            const provider =
+              selection?.provider === 'gemini' ? 'gemini' : 'openai';
+            const apiKey =
+              provider === 'openai' ? parsed.openaiKey : parsed.geminiKey;
+            if (apiKey) {
+              const model =
+                provider === 'openai'
+                  ? 'gpt-4o-mini'
+                  : 'models/gemini-1.5-flash';
+              aiConfig = { useUserKey: true, provider, apiKey, model };
+            }
+          }
         }
       } catch {}
 
@@ -618,7 +629,7 @@ export default function CreatePostView({
           const raw = localStorage.getItem('aiSettings');
           localAi = raw ? JSON.parse(raw) : undefined;
         } catch {}
-        const hasBYOK = !!localAi?.key;
+        const hasBYOK = !!localAi?.openaiKey || !!localAi?.geminiKey;
         if (tier === 'FREE' && !hasBYOK) {
           toast({
             title: 'AI unavailable on Free',
@@ -653,11 +664,14 @@ export default function CreatePostView({
         const raw = localStorage.getItem('aiSettings');
         if (raw) {
           const parsed = JSON.parse(raw);
-          aiConfig = {
-            useUserKey: !!parsed.key,
-            provider: parsed.provider === 'gemini' ? 'gemini' : 'openai',
-            apiKey: parsed.key,
-          };
+          const hasOpenAI = !!parsed.openaiKey;
+          if (hasOpenAI) {
+            aiConfig = {
+              useUserKey: true,
+              provider: 'openai',
+              apiKey: parsed.openaiKey,
+            };
+          }
         }
       } catch {}
       const data = await client.posts.generateImage({
