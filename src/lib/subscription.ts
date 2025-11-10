@@ -11,6 +11,9 @@ export const TIER_LIMITS = {
     maxPostsPerDay: 10,
     maxPostsPerMonth: 300,
     maxConnectedAccounts: 4, // 2 profiles x 2 accounts each
+    // AI limits (FREE: no AI generation)
+    maxAiGenerationsPerDay: 0,
+    maxAiGenerationsPerMonth: 0,
     features: [
       'basic_posting',
       'basic_scheduling',
@@ -26,6 +29,9 @@ export const TIER_LIMITS = {
     maxPostsPerDay: 100,
     maxPostsPerMonth: 3000,
     maxConnectedAccounts: 20,
+    // AI limits
+    maxAiGenerationsPerDay: 5,
+    maxAiGenerationsPerMonth: 150,
     features: [
       'basic_posting',
       'basic_scheduling',
@@ -42,6 +48,9 @@ export const TIER_LIMITS = {
     maxPostsPerDay: 500,
     maxPostsPerMonth: 15000,
     maxConnectedAccounts: 100,
+    // AI limits
+    maxAiGenerationsPerDay: 15,
+    maxAiGenerationsPerMonth: 450,
     features: [
       'basic_posting',
       'basic_scheduling',
@@ -61,6 +70,9 @@ export const TIER_LIMITS = {
     maxPostsPerDay: -1, // Unlimited
     maxPostsPerMonth: -1, // Unlimited
     maxConnectedAccounts: -1, // Unlimited
+    // AI limits (unlimited)
+    maxAiGenerationsPerDay: -1,
+    maxAiGenerationsPerMonth: -1,
     features: [
       'everything',
       'dedicated_support',
@@ -77,6 +89,8 @@ export interface TierLimits {
   maxPostsPerDay: number;
   maxPostsPerMonth: number;
   maxConnectedAccounts: number;
+  maxAiGenerationsPerDay: number;
+  maxAiGenerationsPerMonth: number;
   features: readonly string[];
 }
 
@@ -148,10 +162,6 @@ export async function getOrCreateSubscription(userId: string) {
           currentPeriodEnd: periodEnd,
         },
       });
-
-      console.log(
-        `[Subscription] Created FREE tier subscription for user ${userId}`
-      );
     }
 
     return subscription;
@@ -242,7 +252,6 @@ export async function updateSubscriptionTier(
       },
     });
 
-    console.log(`[Subscription] Updated tier to ${newTier} for user ${userId}`);
     return subscription;
   } catch (error) {
     console.error('[Subscription] Error updating subscription tier:', error);
@@ -264,7 +273,6 @@ export async function cancelSubscription(userId: string, cancelAt?: Date) {
       },
     });
 
-    console.log(`[Subscription] Canceled subscription for user ${userId}`);
     return subscription;
   } catch (error) {
     console.error('[Subscription] Error canceling subscription:', error);
@@ -286,7 +294,6 @@ export async function reactivateSubscription(userId: string) {
       },
     });
 
-    console.log(`[Subscription] Reactivated subscription for user ${userId}`);
     return subscription;
   } catch (error) {
     console.error('[Subscription] Error reactivating subscription:', error);
@@ -402,7 +409,6 @@ export async function initializeUserSubscription(userId: string) {
       },
     });
 
-    console.log(`[Subscription] Initialized subscription for user ${userId}`);
     return subscription;
   } catch (error) {
     console.error('[Subscription] Error initializing subscription:', error);

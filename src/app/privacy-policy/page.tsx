@@ -1,6 +1,4 @@
-import React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 
 export default function PrivacyPolicy() {
   return (
@@ -11,13 +9,10 @@ export default function PrivacyPolicy() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <Link href="/" className="flex items-center">
-                <Image
-                  src="/postit-logo.png"
-                  alt="Social"
-                  width={1000}
-                  height={1000}
-                  className="w-[140px] h-[60px]"
-                />
+                <div className="flex items-center font-bold text-3xl">
+                  <span className="text-[#2F527E]">Out</span>
+                  <span className="text-[#4DCDDB]">Post - AI</span>
+                </div>
               </Link>
             </div>
           </div>
@@ -34,12 +29,12 @@ export default function PrivacyPolicy() {
                   Privacy Policy
                 </h1>
                 <p className="text-sm text-gray-600 mb-8">
-                  Effective Date: October 9, 2025
+                  Effective Date: October 1, 2025
                 </p>
 
                 <div className="mb-8">
                   <p className="text-gray-700 leading-relaxed">
-                    Welcome to social.thinkroman.com ("we," "our," "us").
+                    Welcome to outpost.sudeepkudari.online ("we," "our," "us").
                   </p>
                   <p className="text-gray-700 leading-relaxed mt-4">
                     We value your trust and are committed to protecting your
@@ -256,10 +251,10 @@ export default function PrivacyPolicy() {
                   <p className="text-gray-700 mt-4">
                     To exercise these rights, contact{' '}
                     <a
-                      href="mailto:admin@thinkroman.com"
+                      href="mailto:sudeepkudari0@gmail.com"
                       className="text-blue-600 hover:text-blue-800 underline"
                     >
-                      admin@thinkroman.com
+                      sudeepkudari0@gmail.com
                     </a>{' '}
                     or use the in-app privacy controls.
                   </p>
@@ -289,10 +284,10 @@ export default function PrivacyPolicy() {
                     If you believe a child has used our site in violation of
                     this policy, please notify{' '}
                     <a
-                      href="mailto:admin@thinkroman.com"
+                      href="mailto:sudeepkudari0@gmail.com"
                       className="text-blue-600 hover:text-blue-800 underline"
                     >
-                      admin@thinkroman.com
+                      sudeepkudari0@gmail.com
                     </a>{' '}
                     and we will take appropriate action.
                   </p>
@@ -338,13 +333,12 @@ export default function PrivacyPolicy() {
                     <li>
                       Email:{' '}
                       <a
-                        href="mailto:admin@thinkroman.com"
+                        href="mailto:sudeepkudari0@gmail.com"
                         className="text-blue-600 hover:text-blue-800 underline"
                       >
-                        admin@thinkroman.com
+                        sudeepkudari0@gmail.com
                       </a>
                     </li>
-                    <li>Address: ThinkRoman Ventures LLC, Texas, USA</li>
                   </ul>
                 </section>
               </div>

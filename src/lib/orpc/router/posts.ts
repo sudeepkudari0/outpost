@@ -1,10 +1,13 @@
-import { generateImage as generateDalleImage } from '@/lib/generate-image';
-import { openai } from '@/lib/openai';
-import { getPublisher, type PublishRequest } from '@/lib/social-publishers';
+import {
+  generateImage as generateAiImage,
+  generateText as generateAiText,
+} from '@/lib/ai';
+import { getPublisher } from '@/lib/social-publishers/publishers';
+import { PublishRequest } from '@/lib/social-publishers/types';
 import { getPresignedUrl } from '@/lib/storage';
 import { authed } from '@/orpc';
 import { ORPCError } from '@orpc/server';
-import { Platform, PublishStatus } from '@prisma/client';
+import { Platform } from '@prisma/client';
 import { z } from 'zod';
 
 const ListPostsInput = z.object({
@@ -82,6 +85,7 @@ export const postsRouter = {
         platform: z
           .enum([
             'instagram',
+            'reddit',
             'facebook',
             'linkedin',
             'twitter',
@@ -100,10 +104,55 @@ export const postsRouter = {
             'trending',
           ])
           .default('promotional'),
+        aiConfig: z
+          .object({
+            useUserKey: z.boolean().optional(),
+            provider: z.enum(['openai', 'gemini']).optional(),
+            apiKey: z.string().optional(),
+            model: z.string().optional(),
+          })
+          .optional(),
       })
     )
     .output(z.record(z.any()))
-    .handler(async ({ input }) => {
+    .handler(async ({ input, context }) => {
+      const { user } = context as { user: { id: string } };
+      // Helper to strip common markdown and fix hashtag formats in generated text
+      function sanitizeText(text: string): string {
+        if (!text) return text;
+        let out = text;
+        // Remove bold/italic markers
+        out = out.replace(/\*\*([^*]+)\*\*/g, '$1'); // **bold**
+        out = out.replace(/__([^_]+)__/g, '$1'); // __bold__
+        out = out.replace(/\*([^*]+)\*/g, '$1'); // *italic*
+        out = out.replace(/_([^_]+)_/g, '$1'); // _italic_
+        // Remove heading prefixes at line starts (#, ##, ###, etc.)
+        out = out.replace(/^\s{0,3}#{1,6}\s+/gm, '');
+        // Strip leading bullet markers (-, *, •) but keep the text
+        out = out.replace(/^\s*[-*•]\s+/gm, '');
+        // Convert [text](url) and [text] to plain text
+        out = out.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');
+        out = out.replace(/\[([^\]]+)\]/g, '$1');
+        // Fix hashtag formatting like 'hashtag#Beauty' -> '#Beauty'
+        out = out.replace(/\bhashtag#(\w+)/gi, '#$1');
+        // Normalize multiple spaces
+        out = out.replace(/[\t ]{2,}/g, ' ');
+        // Trim trailing spaces on lines
+        out = out.replace(/[\t ]+$/gm, '');
+        return out.trim();
+      }
+
+      function sanitizeGeneratedContent(content: any): any {
+        if (typeof content === 'string') return sanitizeText(content);
+        if (content && typeof content === 'object') {
+          const result: Record<string, any> = {};
+          for (const [k, v] of Object.entries(content)) {
+            result[k] = typeof v === 'string' ? sanitizeText(v) : v;
+          }
+          return result;
+        }
+        return content;
+      }
       const platformGuidelines: Record<string, string> = {
         instagram:
           'Focus on visual storytelling, use relevant hashtags, keep captions engaging but concise (under 2200 characters). Include emoji usage.',
@@ -113,6 +162,8 @@ export const postsRouter = {
           'Professional tone, industry insights, thought leadership. Longer form content is preferred. Include relevant professional hashtags.',
         twitter:
           'Concise, punchy content under 280 characters. Use trending hashtags, be timely and engaging. Thread format if needed.',
+        reddit:
+          'Write as a helpful, authentic Reddit comment or post. Avoid marketing fluff. Use clear paragraphs, actionable details, and community-friendly tone. No emojis. No hashtags.',
         tiktok:
           'Trendy, youth-focused, video description style. Use popular hashtags and trending sounds references. Keep it fun and energetic.',
         threads:
@@ -136,24 +187,65 @@ export const postsRouter = {
           'Reference current events, use trending hashtags, tap into viral topics, and stay culturally relevant.',
       };
 
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a social media content creator specializing in ${input.platform.toUpperCase()}. Generate ${input.contentType} content optimized specifically for ${input.platform} with a ${input.tone} tone. \n\nPlatform Guidelines for ${input.platform}: ${
-              platformGuidelines[input.platform]
-            }\n\nContent Type Guidelines for ${input.contentType}: ${
-              contentTypeGuidelines[input.contentType]
-            }\n\nReturn JSON with a single key "${input.platform}" containing the optimized content for this platform only. Make sure the content aligns with both the platform requirements and the content type strategy.`,
-          },
-          { role: 'user', content: input.prompt },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.7,
-      });
+      const systemPrompt = `You are a social media content creator specializing in ${input.platform.toUpperCase()}. Generate ${input.contentType} content optimized specifically for ${input.platform} with a ${input.tone} tone.\n\nPlatform Guidelines for ${input.platform}: ${
+        platformGuidelines[input.platform]
+      }\n\nContent Type Guidelines for ${input.contentType}: ${
+        contentTypeGuidelines[input.contentType]
+      }\n\nCRITICAL FORMAT RULES:\n- Use plain text only. Do NOT use any markdown (no **bold**, no headings with #, no bullet symbols like -, *, •).\n- Do NOT include bracketed placeholders like [Product Name] or [Discount Offer]; replace with concrete, generic wording.\n- If you include hashtags, format them as #Word with spaces between each hashtag. Do NOT use 'hashtag#Word'.\n- Keep links as plain text or generic CTAs without markdown.\n\nReturn JSON with a single key "${input.platform}" containing only the plain-text content for this platform.`;
 
-      const content = completion.choices[0]?.message?.content;
+      let content: string | undefined;
+      try {
+        content = await generateAiText({
+          userId: user.id,
+          systemPrompt,
+          prompt: input.prompt,
+          json: true,
+          aiConfig: input.aiConfig,
+        });
+      } catch (err: any) {
+        const msg = String(err?.message || err || '');
+        const isGeminiOverloaded =
+          msg.includes('Gemini error') &&
+          (msg.includes('503') ||
+            msg.includes('UNAVAILABLE') ||
+            msg.toLowerCase().includes('overloaded'));
+        // Fallback to OpenAI only if BYOK is enabled with a user key
+        if (isGeminiOverloaded) {
+          const canUseBYOKOpenAI = !!(
+            input.aiConfig?.useUserKey &&
+            (input.aiConfig?.provider === 'openai' ||
+              !input.aiConfig?.provider) &&
+            input.aiConfig?.apiKey
+          );
+          if (canUseBYOKOpenAI) {
+            try {
+              content = await generateAiText({
+                userId: user.id,
+                systemPrompt,
+                prompt: input.prompt,
+                json: true,
+                aiConfig: { ...(input.aiConfig || {}), provider: 'openai' },
+              });
+            } catch (fallbackErr: any) {
+              throw new ORPCError('BAD_REQUEST', {
+                message:
+                  fallbackErr?.message ||
+                  'AI provider temporarily unavailable. Please try again.',
+              });
+            }
+          } else {
+            // No safe fallback (would hit app key quota/plan). Return a friendly message.
+            throw new ORPCError('BAD_REQUEST', {
+              message:
+                'AI is temporarily unavailable. Add your own AI key in Dashboard → API Keys or try again shortly.',
+            });
+          }
+        } else {
+          throw new ORPCError('BAD_REQUEST', {
+            message: err?.message || 'Failed to generate content',
+          });
+        }
+      }
       if (!content) {
         throw new ORPCError('INTERNAL_SERVER_ERROR', {
           message: 'No content generated',
@@ -161,9 +253,12 @@ export const postsRouter = {
       }
 
       try {
-        return JSON.parse(content);
+        const parsed = JSON.parse(content);
+        return sanitizeGeneratedContent(parsed);
       } catch {
-        return { [input.platform]: content } as Record<string, unknown>;
+        return {
+          [input.platform]: sanitizeGeneratedContent(content),
+        } as Record<string, unknown>;
       }
     }),
 
@@ -174,11 +269,28 @@ export const postsRouter = {
       summary: 'Generate an image and upload to storage',
       tags: ['Posts'],
     })
-    .input(z.object({ prompt: z.string().min(1) }))
+    .input(
+      z.object({
+        prompt: z.string().min(1),
+        aiConfig: z
+          .object({
+            useUserKey: z.boolean().optional(),
+            provider: z.enum(['openai', 'gemini']).optional(),
+            apiKey: z.string().optional(),
+            model: z.string().optional(),
+          })
+          .optional(),
+      })
+    )
     .output(z.object({ imageUrl: z.string() }))
-    .handler(async ({ input }) => {
+    .handler(async ({ input, context }) => {
+      const { user } = context as { user: { id: string } };
       // Generate remote image
-      const imageUrl = await generateDalleImage(input.prompt);
+      const imageUrl = await generateAiImage({
+        userId: user.id,
+        prompt: input.prompt,
+        aiConfig: input.aiConfig,
+      });
 
       // Download bytes server-side
       const res = await fetch(imageUrl);
@@ -193,12 +305,12 @@ export const postsRouter = {
       // Upload to storage
       const key = `generated/${Date.now()}.png`;
       const presign = await getPresignedUrl(key);
-      if ((presign as any)?.error) {
+      if (presign?.error) {
         throw new ORPCError('INTERNAL_SERVER_ERROR', {
           message: 'Failed to get presigned URL',
         });
       }
-      const payload: any = (presign as any).result ?? presign;
+      const payload: any = presign.result ?? presign;
       const uploadUrl: string | undefined = payload.presignedUrl;
       if (!uploadUrl) {
         throw new ORPCError('INTERNAL_SERVER_ERROR', {
@@ -228,12 +340,12 @@ export const postsRouter = {
     .output(z.object({ presignedUrl: z.string(), publicUrl: z.string() }))
     .handler(async ({ input }) => {
       const raw = await getPresignedUrl(input.key);
-      if ((raw as any)?.error) {
+      if (raw?.error) {
         throw new ORPCError('INTERNAL_SERVER_ERROR', {
           message: 'Failed to get presigned URL',
         });
       }
-      const payload: any = (raw as any).result ?? raw;
+      const payload: any = raw.result ?? raw;
       const presignedUrl = payload.presignedUrl as string | undefined;
       const publicUrl = payload.publicUrl as string | undefined;
       if (!presignedUrl || !publicUrl) {
@@ -287,6 +399,22 @@ export const postsRouter = {
         throw new ORPCError('UNAUTHORIZED', { message: 'Not authenticated' });
       }
 
+      // Ensure user can post to the selected profile: owner or shared
+      const ownsProfile = await prisma.socialProfile.findFirst({
+        where: { id: input.profileId, userId: user.id },
+        select: { id: true },
+      });
+      if (!ownsProfile) {
+        const hasShare = await prisma.profileShare.findFirst({
+          where: { profileId: input.profileId, memberUserId: user.id },
+        });
+        if (!hasShare) {
+          throw new ORPCError('FORBIDDEN', {
+            message: 'You do not have access to this profile',
+          });
+        }
+      }
+
       // Map string platform to Prisma enum
       const toPlatformEnum = (value?: string): Platform => {
         const upper = (value || 'INSTAGRAM').toUpperCase();
@@ -299,6 +427,8 @@ export const postsRouter = {
             return Platform.TWITTER;
           case 'LINKEDIN':
             return Platform.LINKEDIN;
+          case 'REDDIT':
+            return Platform.REDDIT;
           case 'TIKTOK':
             return Platform.TIKTOK;
           case 'YOUTUBE':
@@ -334,6 +464,7 @@ export const postsRouter = {
                 input.publishingOption === 'schedule' && input.scheduledFor
                   ? new Date(input.scheduledFor)
                   : null,
+              timezone: input.timezone,
               platforms: {
                 create: input.platforms.map(p => ({
                   accountId: p.accountId,
@@ -347,6 +478,8 @@ export const postsRouter = {
               platforms: true,
             },
           });
+
+          // If scheduling, nothing else to do here; Vercel cron will pick it up
 
           // If draft, just return early - no publishing needed
           if (input.publishingOption === 'draft') {
@@ -372,10 +505,14 @@ export const postsRouter = {
             // Store errors to throw at the end if any fail
             const publishErrors: string[] = [];
 
-            // Platforms that support native scheduling via their API
-            const platformsWithNativeScheduling = ['FACEBOOK'];
+            // For scheduled posts, defer actual publishing to the cron runner
+            if (input.publishingOption === 'schedule') {
+              // All platforms will be handled by the cron job
+              // Just mark them as PENDING and return
+              return { success: true, id: created.id };
+            }
 
-            // Publish to each platform sequentially to capture all errors
+            // For immediate publishing, process each platform
             for (const postPlatform of created.platforms) {
               const account = connectedAccounts.find(
                 (a: any) => a.id === postPlatform.accountId
@@ -407,14 +544,39 @@ export const postsRouter = {
                 continue;
               }
 
-              // For scheduled posts on platforms WITHOUT native scheduling,
-              // skip publishing and let the cron job handle it later
-              if (
-                input.publishingOption === 'schedule' &&
-                !platformsWithNativeScheduling.includes(account.platform)
-              ) {
-                // Keep as PENDING - cron job will publish at scheduled time
-                continue;
+              // Preflight: ensure Twitter token has tweet.write scope
+              if (account.platform === 'TWITTER') {
+                const scope: string | undefined = account?.platformData?.scope;
+
+                // Debug logging
+                console.log('=== TWITTER SCOPE DEBUG ===');
+                console.log('Account ID:', account.id);
+                console.log(
+                  'Platform Data:',
+                  JSON.stringify(account.platformData, null, 2)
+                );
+                console.log('Scope:', scope);
+                console.log(
+                  'Has tweet.write:',
+                  scope?.split(/\s+/).includes('tweet.write')
+                );
+                console.log('========================');
+
+                const hasWrite =
+                  !!scope && scope.split(/\s+/).includes('tweet.write');
+                if (!hasWrite) {
+                  const errorMsg =
+                    'Twitter account is missing tweet.write scope. Please disconnect and reconnect Twitter to grant write permissions.';
+                  publishErrors.push(errorMsg);
+                  await tx.postPlatform.update({
+                    where: { id: postPlatform.id },
+                    data: {
+                      status: 'FAILED',
+                      errorMessage: errorMsg,
+                    },
+                  });
+                  continue;
+                }
               }
 
               // Get the appropriate publisher
@@ -462,11 +624,6 @@ export const postsRouter = {
                 })),
                 accessToken: account.accessToken,
                 platformUserId: account.platformUserId,
-                // Pass scheduledFor for native platform scheduling (only Facebook supports this)
-                scheduledFor:
-                  input.publishingOption === 'schedule' && input.scheduledFor
-                    ? new Date(input.scheduledFor)
-                    : undefined,
               };
 
               try {
@@ -475,20 +632,13 @@ export const postsRouter = {
 
                 if (result.success) {
                   // Update post platform with success
-                  // For scheduled posts, mark as SCHEDULED; for immediate posts, mark as PUBLISHED
-                  const platformStatus: PublishStatus =
-                    input.publishingOption === 'schedule'
-                      ? 'SCHEDULED'
-                      : 'PUBLISHED';
-
                   await tx.postPlatform.update({
                     where: { id: postPlatform.id },
                     data: {
-                      status: platformStatus,
+                      status: 'PUBLISHED',
                       publishedId: result.platformPostId,
                       publishedUrl: result.platformPostUrl,
-                      publishedAt:
-                        input.publishingOption === 'now' ? new Date() : null,
+                      publishedAt: new Date(),
                     },
                   });
                 } else {
@@ -520,6 +670,21 @@ export const postsRouter = {
                     errorMessage: errorMsg,
                   },
                 });
+                try {
+                  await tx.usageLog.create({
+                    data: {
+                      userId: user.id,
+                      action: 'POST_PUBLISHED',
+                      metadata: {
+                        postId: created.id,
+                        platform: account.platform,
+                        error: errorMsg,
+                        kind: 'PUBLISH_ERROR',
+                      },
+                      timestamp: new Date(),
+                    },
+                  });
+                } catch {}
               }
             }
 
@@ -530,50 +695,32 @@ export const postsRouter = {
               });
             }
 
-            // Check if all platforms published/scheduled successfully
+            // Check if all platforms published successfully
             const updatedPostPlatforms = await tx.postPlatform.findMany({
               where: { postId: created.id },
             });
 
-            // For scheduled posts, accept both SCHEDULED (native scheduling) and PENDING (cron job scheduling)
-            // For immediate posts, check for PUBLISHED status
-            const allSuccess =
-              input.publishingOption === 'schedule'
-                ? updatedPostPlatforms.every(
-                    (pp: any) =>
-                      pp.status === 'SCHEDULED' || pp.status === 'PENDING'
-                  )
-                : updatedPostPlatforms.every(
-                    (pp: any) => pp.status === 'PUBLISHED'
-                  );
+            const allSuccess = updatedPostPlatforms.every(
+              (pp: any) => pp.status === 'PUBLISHED'
+            );
 
             // Update overall post status
             await tx.post.update({
               where: { id: created.id },
               data: {
-                status:
-                  input.publishingOption === 'schedule'
-                    ? 'SCHEDULED'
-                    : 'PUBLISHED',
-                publishedAt:
-                  input.publishingOption === 'now' && allSuccess
-                    ? new Date()
-                    : null,
+                status: 'PUBLISHED',
+                publishedAt: allSuccess ? new Date() : null,
               },
             });
 
-            // Log the publishing/scheduling action
+            // Log the publishing action
             await tx.usageLog.create({
               data: {
                 userId: user.id,
-                action:
-                  input.publishingOption === 'schedule'
-                    ? 'POST_SCHEDULED'
-                    : 'POST_PUBLISHED',
+                action: 'POST_PUBLISHED',
                 metadata: {
                   postId: created.id,
                   publishingOption: input.publishingOption,
-                  scheduledFor: input.scheduledFor,
                   platforms: updatedPostPlatforms.map((pp: any) => ({
                     platform: pp.platform,
                     status: pp.status,
@@ -586,10 +733,331 @@ export const postsRouter = {
           return { success: true, id: created.id };
         },
         {
-          timeout: 30000, // 30 second timeout for external API calls
+          timeout: 120000, // 120 second timeout for external API calls
         }
       );
 
       return result;
+    }),
+
+  cancelScheduledPost: authed
+    .route({
+      method: 'POST',
+      path: '/posts/cancel-scheduled',
+      summary: 'Cancel a scheduled post',
+      tags: ['Posts'],
+    })
+    .input(
+      z.object({
+        postId: z.string().min(1),
+      })
+    )
+    .output(z.object({ success: z.boolean() }))
+    .handler(async ({ input, context }) => {
+      const { prisma, user } = context;
+
+      if (!prisma || !user?.id) {
+        throw new ORPCError('UNAUTHORIZED', { message: 'Not authenticated' });
+      }
+
+      // Find the scheduled post
+      const post = await prisma.post.findFirst({
+        where: {
+          id: input.postId,
+          userId: user.id,
+          status: 'SCHEDULED',
+        },
+      });
+
+      if (!post) {
+        throw new ORPCError('NOT_FOUND', {
+          message: 'Scheduled post not found',
+        });
+      }
+
+      // No external cron to cancel; just mark as canceled
+
+      // Update post status to canceled
+      await prisma.post.update({
+        where: { id: input.postId },
+        data: {
+          status: 'CANCELED',
+        },
+      });
+
+      // Log the cancellation
+      await prisma.usageLog.create({
+        data: {
+          userId: user.id,
+          action: 'POST_SCHEDULED',
+          metadata: {
+            postId: input.postId,
+            cancelled: true,
+          },
+        },
+      });
+
+      return { success: true };
+    }),
+
+  get: authed
+    .route({
+      method: 'GET',
+      path: '/posts/get',
+      summary: 'Get a single post by ID',
+      tags: ['Posts'],
+    })
+    .input(
+      z.object({
+        id: z.string().min(1),
+      })
+    )
+    .output(
+      z.object({
+        id: z.string(),
+        content: z.any(),
+        mediaUrls: z.array(z.string()).optional(),
+        status: z.string(),
+        scheduledFor: z.date().nullable().optional(),
+        createdAt: z.date(),
+        profileId: z.string(),
+        platforms: z.array(
+          z.object({
+            platform: z.string(),
+            accountId: z.string(),
+          })
+        ),
+        publishingOption: z.string().optional(),
+        timezone: z.string().optional(),
+      })
+    )
+    .handler(async ({ input, context }) => {
+      const { prisma, user } = context;
+
+      if (!prisma || !user?.id) {
+        throw new ORPCError('UNAUTHORIZED', { message: 'Not authenticated' });
+      }
+
+      const post = await prisma.post.findFirst({
+        where: {
+          id: input.id,
+          userId: user.id,
+        },
+        include: {
+          platforms: true,
+        },
+      });
+
+      if (!post) {
+        throw new ORPCError('NOT_FOUND', {
+          message: 'Post not found',
+        });
+      }
+
+      return {
+        id: post.id,
+        content: post.content,
+        mediaUrls: post.mediaUrls,
+        status: post.status,
+        scheduledFor: post.scheduledFor ?? null,
+        createdAt: post.createdAt,
+        profileId: post.profileId,
+        platforms: post.platforms.map((pp: any) => ({
+          platform: pp.platform,
+          accountId: pp.accountId || '',
+        })),
+        publishingOption: post.publishingOption || 'draft',
+        timezone: post.timezone || 'America/Los_Angeles',
+      };
+    }),
+
+  update: authed
+    .route({
+      method: 'PUT',
+      path: '/posts/update',
+      summary: 'Update an existing post',
+      tags: ['Posts'],
+    })
+    .input(
+      z.object({
+        id: z.string().min(1),
+        profileId: z.string().min(1).optional(),
+        platforms: z
+          .array(
+            z.object({
+              accountId: z.string(),
+              platform: z.string().optional(),
+            })
+          )
+          .optional(),
+        content: z.any().optional(),
+        mediaItems: z
+          .array(
+            z.object({
+              url: z.string(),
+              type: z.enum(['image', 'video']).optional(),
+              filename: z.string().optional(),
+              size: z.number().optional(),
+            })
+          )
+          .optional(),
+        publishingOption: z.enum(['now', 'schedule', 'draft']).optional(),
+        scheduledFor: z.string().optional(),
+        timezone: z.string().optional(),
+      })
+    )
+    .output(z.object({ success: z.boolean(), id: z.string().optional() }))
+    .handler(async ({ input, context }) => {
+      const { prisma, user } = context;
+
+      if (!prisma || !user?.id) {
+        throw new ORPCError('UNAUTHORIZED', { message: 'Not authenticated' });
+      }
+
+      // Find the post and verify ownership
+      const post = await prisma.post.findFirst({
+        where: {
+          id: input.id,
+          userId: user.id,
+        },
+      });
+
+      if (!post) {
+        throw new ORPCError('NOT_FOUND', {
+          message: 'Post not found',
+        });
+      }
+
+      // Only allow editing of DRAFT or SCHEDULED posts
+      if (post.status !== 'DRAFT' && post.status !== 'SCHEDULED') {
+        throw new ORPCError('FORBIDDEN', {
+          message: 'Only draft or scheduled posts can be edited',
+        });
+      }
+
+      const toPlatformEnum = (value?: string): Platform => {
+        const upper = (value || 'INSTAGRAM').toUpperCase();
+        switch (upper) {
+          case 'FACEBOOK':
+            return Platform.FACEBOOK;
+          case 'INSTAGRAM':
+            return Platform.INSTAGRAM;
+          case 'TWITTER':
+            return Platform.TWITTER;
+          case 'LINKEDIN':
+            return Platform.LINKEDIN;
+          case 'REDDIT':
+            return Platform.REDDIT;
+          case 'TIKTOK':
+            return Platform.TIKTOK;
+          case 'YOUTUBE':
+            return Platform.YOUTUBE;
+          case 'THREADS':
+            return Platform.THREADS;
+          default:
+            return Platform.INSTAGRAM;
+        }
+      };
+
+      // Determine post status based on publishing option
+      const postStatus =
+        input.publishingOption === 'draft'
+          ? 'DRAFT'
+          : input.publishingOption === 'schedule'
+            ? 'SCHEDULED'
+            : post.status === 'SCHEDULED'
+              ? 'SCHEDULED'
+              : 'DRAFT';
+
+      // Update the post
+      await prisma.post.update({
+        where: { id: input.id },
+        data: {
+          content: input.content !== undefined ? input.content : post.content,
+          mediaUrls:
+            input.mediaItems !== undefined
+              ? input.mediaItems.map(m => m.url)
+              : post.mediaUrls,
+          status: postStatus,
+          scheduledFor:
+            input.scheduledFor !== undefined
+              ? input.scheduledFor
+                ? new Date(input.scheduledFor)
+                : null
+              : post.scheduledFor,
+          timezone:
+            input.timezone !== undefined ? input.timezone : post.timezone,
+          publishingOption:
+            input.publishingOption !== undefined
+              ? input.publishingOption === 'now'
+                ? 'NOW'
+                : input.publishingOption === 'schedule'
+                  ? 'SCHEDULE'
+                  : 'DRAFT'
+              : post.publishingOption,
+        },
+      });
+
+      // Update platforms if provided
+      if (input.platforms && input.platforms.length > 0) {
+        // Delete existing platforms
+        await prisma.postPlatform.deleteMany({
+          where: { postId: input.id },
+        });
+
+        // Create new platform entries
+        await prisma.postPlatform.createMany({
+          data: input.platforms.map(p => ({
+            postId: input.id,
+            platform: toPlatformEnum(p.platform),
+            accountId: p.accountId,
+            status: 'PENDING',
+          })),
+        });
+      }
+
+      return { success: true, id: input.id };
+    }),
+
+  delete: authed
+    .route({
+      method: 'DELETE',
+      path: '/posts/delete',
+      summary: 'Delete a post',
+      tags: ['Posts'],
+    })
+    .input(
+      z.object({
+        id: z.string().min(1),
+      })
+    )
+    .output(z.object({ success: z.boolean() }))
+    .handler(async ({ input, context }) => {
+      const { prisma, user } = context;
+
+      if (!prisma || !user?.id) {
+        throw new ORPCError('UNAUTHORIZED', { message: 'Not authenticated' });
+      }
+
+      // Find the post and verify ownership
+      const post = await prisma.post.findFirst({
+        where: {
+          id: input.id,
+          userId: user.id,
+        },
+      });
+
+      if (!post) {
+        throw new ORPCError('NOT_FOUND', {
+          message: 'Post not found',
+        });
+      }
+
+      // Delete the post (cascade will delete post platforms)
+      await prisma.post.delete({
+        where: { id: input.id },
+      });
+
+      return { success: true };
     }),
 };

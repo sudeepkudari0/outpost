@@ -4,10 +4,22 @@
  */
 
 import {
+  createLinkedInOAuthService,
+  saveLinkedInAccount,
+} from '@/lib/linkedin-oauth';
+import {
   createMetaOAuthService,
   generateOAuthState,
   saveConnectedAccount,
 } from '@/lib/meta-oauth';
+import { createRedditOAuthService } from '@/lib/reddit-oauth';
+import { getTierLimits } from '@/lib/subscription';
+import {
+  createTwitterOAuthService,
+  generatePkceChallenge,
+  generatePkceVerifier,
+  saveTwitterAccount,
+} from '@/lib/twitter-oauth';
 import { authed } from '@/orpc';
 import { ORPCError } from '@orpc/server';
 import type { Platform } from '@prisma/client';
@@ -22,6 +34,7 @@ const PlatformEnum = z.enum([
   'TIKTOK',
   'YOUTUBE',
   'THREADS',
+  'REDDIT',
 ]);
 
 const CreateProfileSchema = z.object({
@@ -132,10 +145,21 @@ export const socialRouter = {
         }
       }
 
-      // Check if this is the first profile
+      // Check current profile count from DB for accurate enforcement
       const profileCount = await prisma.socialProfile.count({
         where: { userId: user.id },
       });
+
+      // Enforce with fallback to code limits if TierConfig is missing
+      const effectiveTier = userWithUsage.subscription?.tier || 'FREE';
+      const maxProfiles =
+        tierConfig?.maxProfiles ?? getTierLimits(effectiveTier).maxProfiles;
+
+      if (maxProfiles !== -1 && profileCount >= maxProfiles) {
+        throw new ORPCError('FORBIDDEN', {
+          message: `Profile limit reached. Your plan allows ${maxProfiles} profiles.`,
+        });
+      }
 
       const isFirst = profileCount === 0;
 
@@ -182,10 +206,10 @@ export const socialRouter = {
   /**
    * Get all profiles for the current user
    */
-  getProfiles: authed
+  'get-profiles': authed
     .route({
       method: 'GET',
-      path: '/social/profiles',
+      path: '/social/get-profiles',
       summary: 'Get all social profiles',
       tags: ['Social'],
     })
@@ -199,21 +223,33 @@ export const socialRouter = {
         });
       }
 
-      const profiles = await prisma.socialProfile.findMany({
+      // Own profiles
+      const ownProfiles = await prisma.socialProfile.findMany({
         where: { userId: user.id },
         orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
       });
 
-      return profiles;
+      // Profiles shared to this user
+      const shares = await prisma.profileShare.findMany({
+        where: { memberUserId: user.id },
+        include: { profile: true },
+      });
+      const sharedProfiles = shares.map((s: any) => s.profile);
+
+      // Merge unique profiles
+      const map = new Map<string, any>();
+      for (const p of ownProfiles) map.set(p.id, p);
+      for (const p of sharedProfiles) if (!map.has(p.id)) map.set(p.id, p);
+      return Array.from(map.values());
     }),
 
   /**
    * Update a profile
    */
-  updateProfile: authed
+  'update-profile': authed
     .route({
       method: 'PUT',
-      path: '/social/profiles/update',
+      path: '/social/update-profile',
       summary: 'Update a social profile',
       tags: ['Social'],
     })
@@ -258,10 +294,10 @@ export const socialRouter = {
   /**
    * Delete a profile
    */
-  deleteProfile: authed
+  'delete-profile': authed
     .route({
       method: 'DELETE',
-      path: '/social/profiles/delete',
+      path: '/social/delete-profile',
       summary: 'Delete a social profile',
       tags: ['Social'],
     })
@@ -311,10 +347,10 @@ export const socialRouter = {
   /**
    * Get connected accounts for a profile
    */
-  getConnectedAccounts: authed
+  'get-connected-accounts': authed
     .route({
       method: 'GET',
-      path: '/social/accounts',
+      path: '/social/get-connected-accounts',
       summary: 'Get connected accounts for a profile',
       tags: ['Social'],
     })
@@ -329,18 +365,19 @@ export const socialRouter = {
         });
       }
 
-      // Verify profile ownership
+      // Verify ownership or share
       const profile = await prisma.socialProfile.findFirst({
-        where: {
-          id: input.profileId,
-          userId: user.id,
-        },
+        where: { id: input.profileId, userId: user.id },
       });
-
       if (!profile) {
-        throw new ORPCError('NOT_FOUND', {
-          message: 'Profile not found',
+        const shared = await prisma.profileShare.findFirst({
+          where: { profileId: input.profileId, memberUserId: user.id },
         });
+        if (!shared) {
+          throw new ORPCError('NOT_FOUND', {
+            message: 'Profile not found',
+          });
+        }
       }
 
       const accounts = await prisma.connectedAccount.findMany({
@@ -356,10 +393,10 @@ export const socialRouter = {
   /**
    * Initiate OAuth connection for Instagram or Facebook
    */
-  initiateConnection: authed
+  'initiate-connection': authed
     .route({
       method: 'POST',
-      path: '/social/connect/initiate',
+      path: '/social/initiate-connection',
       summary: 'Initiate OAuth connection for social platform',
       tags: ['Social'],
     })
@@ -390,19 +427,11 @@ export const socialRouter = {
 
       const { platform } = input;
 
-      // Only support Meta platforms for now
-      if (platform !== 'INSTAGRAM' && platform !== 'FACEBOOK') {
-        throw new ORPCError('BAD_REQUEST', {
-          message: `Platform ${platform} is not supported yet. Only Instagram and Facebook are currently available.`,
-        });
-      }
-
       // Build redirect URI
       const baseRaw =
         process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-      const baseUrl = baseRaw.replace(/\/+$/, '');
-      const redirectUri = `${baseUrl}/dashboard/connections`;
-
+      const redirectUri = `${baseRaw}/dashboard/connections`;
+      console.log('platform', platform);
       // Generate state for CSRF protection and encode it with metadata
       // This encoded state will be sent to the OAuth provider and returned in the callback
       const encodedState = Buffer.from(
@@ -414,30 +443,61 @@ export const socialRouter = {
         })
       ).toString('base64');
 
-      // Create Meta OAuth service
-      const metaOAuth = createMetaOAuthService(redirectUri);
-
-      // Generate auth URL based on platform, using the encoded state
-      let authUrl: string;
-      if (platform === 'INSTAGRAM') {
-        authUrl = metaOAuth.getInstagramAuthUrl(encodedState);
-      } else {
-        authUrl = metaOAuth.getFacebookAuthUrl(encodedState);
+      if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
+        const metaOAuth = createMetaOAuthService(redirectUri);
+        const authUrl =
+          platform === 'INSTAGRAM'
+            ? metaOAuth.getInstagramAuthUrl(encodedState)
+            : metaOAuth.getFacebookAuthUrl(encodedState);
+        return { authUrl, state: encodedState };
       }
 
-      return {
-        authUrl,
-        state: encodedState,
-      };
+      if (platform === 'LINKEDIN') {
+        const li = createLinkedInOAuthService(redirectUri);
+        const authUrl = li.getAuthUrl(encodedState);
+        return { authUrl, state: encodedState };
+      }
+
+      if (platform === 'TWITTER') {
+        // Use the correct Twitter callback URL
+        const twitterRedirectUri = `${baseRaw}/api/auth/twitter/callback`;
+        const tw = createTwitterOAuthService(twitterRedirectUri);
+        const codeVerifier = generatePkceVerifier();
+        const codeChallenge = generatePkceChallenge(codeVerifier);
+
+        // Embed codeVerifier in state (stateless approach)
+        const stateWithPkce = Buffer.from(
+          JSON.stringify({
+            nonce: generateOAuthState(),
+            profileId: input.profileId,
+            platform,
+            userId: user.id,
+            codeVerifier,
+          })
+        ).toString('base64');
+
+        const authUrl = tw.getAuthUrl(stateWithPkce, codeChallenge);
+        return { authUrl, state: stateWithPkce };
+      }
+
+      if (platform === 'REDDIT') {
+        const reddit = createRedditOAuthService(redirectUri);
+        const authUrl = reddit.getAuthUrl(encodedState);
+        return { authUrl, state: encodedState };
+      }
+
+      throw new ORPCError('BAD_REQUEST', {
+        message: `Platform ${platform} is not supported yet.`,
+      });
     }),
 
   /**
    * Complete OAuth connection after callback
    */
-  completeConnection: authed
+  'complete-connection': authed
     .route({
       method: 'POST',
-      path: '/social/connect/complete',
+      path: '/social/complete-connection',
       summary: 'Complete OAuth connection after callback',
       tags: ['Social'],
     })
@@ -465,6 +525,7 @@ export const socialRouter = {
         profileId: string;
         platform: string;
         userId: string;
+        codeVerifier?: string;
       };
 
       try {
@@ -509,18 +570,15 @@ export const socialRouter = {
 
       const baseRaw =
         process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-      const baseUrl = baseRaw.replace(/\/+$/, '');
-      const redirectUri = `${baseUrl}/dashboard/connections`;
-      const metaOAuth = createMetaOAuthService(redirectUri);
+      const redirectUri = `${baseRaw}/dashboard/connections`;
 
       if (platform === 'INSTAGRAM') {
+        const metaOAuth = createMetaOAuthService(redirectUri);
         // Instagram Business Login flow
         const tokenResponse =
           await metaOAuth.exchangeCodeForInstagramToken(code);
-        console.log('Instagram tokenResponse', tokenResponse);
 
         const shortLivedToken = tokenResponse.access_token;
-        const userId = String(tokenResponse.user_id);
 
         // Get long-lived Instagram token
         const longLivedToken =
@@ -530,8 +588,6 @@ export const socialRouter = {
         const accountDetails = await metaOAuth.getInstagramAccountDetails(
           longLivedToken.access_token
         );
-
-        console.log('Instagram accountDetails', accountDetails);
 
         // Save Instagram account with actual details
         const account = await saveConnectedAccount({
@@ -555,11 +611,11 @@ export const socialRouter = {
           success: true,
           accounts: [account],
         };
-      } else {
+      } else if (platform === 'FACEBOOK') {
+        const metaOAuth = createMetaOAuthService(redirectUri);
         // Facebook flow
         const tokenResponse =
           await metaOAuth.exchangeCodeForFacebookToken(code);
-        console.log('Facebook tokenResponse', tokenResponse);
 
         // Get long-lived Facebook token
         const longLivedToken = await metaOAuth.getFacebookLongLivedToken(
@@ -574,7 +630,6 @@ export const socialRouter = {
 
         // Get user's Facebook pages
         const pages = await metaOAuth.getUserPages(longLivedToken.access_token);
-        console.log('Facebook pages found:', pages.length, pages);
 
         for (const page of pages) {
           // Save each page as a connected account
@@ -599,6 +654,120 @@ export const socialRouter = {
           success: true,
           accounts: savedAccounts,
         };
+      } else if (platform === 'LINKEDIN') {
+        const li = createLinkedInOAuthService(redirectUri);
+        const token = await li.exchangeCodeForToken(code);
+
+        const accessToken = token.access_token;
+        const expiresAt = token.expires_in
+          ? new Date(Date.now() + token.expires_in * 1000)
+          : undefined;
+
+        // Fetch member profile
+        const me = await li.getMemberProfile(accessToken);
+        const memberUrn = `urn:li:person:${me.id}`;
+        const displayName = [me.localizedFirstName, me.localizedLastName]
+          .filter(Boolean)
+          .join(' ');
+
+        const saved: any[] = [];
+
+        // Save member as an account (personal posting)
+        const memberAccount = await saveLinkedInAccount({
+          profileId,
+          platform: 'LINKEDIN' as Platform,
+          platformUserId: memberUrn,
+          username: displayName || me.id,
+          displayName: displayName || me.id,
+          profileImageUrl: undefined,
+          accessToken,
+          refreshToken: token.refresh_token,
+          tokenExpiresAt: expiresAt,
+          platformData: { type: 'PERSON' },
+        });
+        saved.push(memberAccount);
+
+        // Also save admin organizations (company pages) if any
+        try {
+          const orgs = await li.getAdminOrganizations(accessToken);
+          for (const org of orgs) {
+            const orgUrn = `urn:li:organization:${org.id}`;
+            const orgAccount = await saveLinkedInAccount({
+              profileId,
+              platform: 'LINKEDIN' as Platform,
+              platformUserId: orgUrn,
+              username: org.localizedName || org.vanityName || String(org.id),
+              displayName:
+                org.localizedName || org.vanityName || String(org.id),
+              profileImageUrl: undefined,
+              accessToken,
+              refreshToken: token.refresh_token,
+              tokenExpiresAt: expiresAt,
+              platformData: { type: 'ORGANIZATION' },
+            });
+            saved.push(orgAccount);
+          }
+        } catch {}
+
+        return { success: true, accounts: saved };
+      } else if (platform === 'TWITTER') {
+        const tw = createTwitterOAuthService(redirectUri);
+
+        const codeVerifier = stateData?.codeVerifier as string | undefined;
+        if (!codeVerifier) {
+          throw new ORPCError('BAD_REQUEST', {
+            message: 'Missing PKCE verifier in state',
+          });
+        }
+
+        const token = await tw.exchangeCodeForToken({ code, codeVerifier });
+        const accessToken = token.access_token;
+        const expiresAt = token.expires_in
+          ? new Date(Date.now() + token.expires_in * 1000)
+          : undefined;
+
+        const me = await tw.getUserMe(accessToken);
+
+        const account = await saveTwitterAccount({
+          profileId,
+          platform: 'TWITTER' as Platform,
+          platformUserId: me.id,
+          username: me.username,
+          displayName: me.name,
+          profileImageUrl: me.profile_image_url,
+          accessToken,
+          refreshToken: token.refresh_token,
+          tokenExpiresAt: expiresAt,
+          platformData: { token_type: token.token_type, scope: token.scope },
+        });
+
+        return { success: true, accounts: [account] };
+      } else if (platform === 'REDDIT') {
+        const reddit = createRedditOAuthService(redirectUri);
+        const token = await reddit.exchangeCodeForToken(code);
+        const accessToken = token.access_token;
+        const expiresAt = token.expires_in
+          ? new Date(Date.now() + token.expires_in * 1000)
+          : undefined;
+
+        const me = await reddit.getUserMe(accessToken);
+        const displayName = me.name;
+        const avatar = me.icon_img || me.snoovatar_img;
+
+        const account = await saveConnectedAccount({
+          profileId,
+          platform: 'REDDIT' as Platform,
+          platformUserId: me.id,
+          username: displayName,
+          displayName,
+          profileImageUrl: avatar,
+          accessToken,
+          refreshToken: token.refresh_token,
+          tokenExpiresAt: expiresAt,
+          platformData: { token_type: token.token_type, scope: token.scope },
+        });
+
+        return { success: true, accounts: [account] };
       }
 
       // This should never be reached
@@ -610,10 +779,10 @@ export const socialRouter = {
   /**
    * Disconnect a social account
    */
-  disconnectAccount: authed
+  'disconnect-account': authed
     .route({
       method: 'POST',
-      path: '/social/disconnect',
+      path: '/social/disconnect-account',
       summary: 'Disconnect a social account',
       tags: ['Social'],
     })
@@ -655,13 +824,13 @@ export const socialRouter = {
         (account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK')
       ) {
         try {
-          const baseUrl =
+          const baseRaw =
             process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-          const redirectUri = `${baseUrl}/dashboard/connections/callback`;
+          const redirectUri = `${baseRaw}/dashboard/connections`;
           const metaOAuth = createMetaOAuthService(redirectUri);
           await metaOAuth.revokeToken(account.accessToken);
         } catch (error) {
-          console.error('Error revoking Meta token:', error);
+          console.error('[Meta OAuth] Error revoking token:', error);
           // Continue with deletion even if revocation fails
         }
       }

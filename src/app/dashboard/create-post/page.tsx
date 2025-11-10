@@ -1,50 +1,50 @@
 import CreatePostView from '@/components/posts/create/create-post-view';
 import { client } from '@/lib/orpc/server';
+import { ConnectedAccount } from '@prisma/client';
 
-type Profile = {
-  id: string;
-  name: string;
-  description?: string | null;
-  color?: string | null;
-  isDefault?: boolean;
-  createdAt?: Date;
-};
-
-type ConnectedAccount = {
-  id: string;
-  username: string;
-  displayName?: string | null;
-  profileImageUrl?: string | null;
-  connectedAt: Date;
-  platform: string;
-  isActive: boolean;
-};
-
-async function getInitialData() {
+async function getInitialData(editPostId?: string) {
   try {
-    const profiles = await client.social.getProfiles();
+    const profiles = await client.social['get-profiles']();
     const selectedProfile = profiles[0]?.id ?? '';
 
     let accounts: ConnectedAccount[] = [];
     if (selectedProfile) {
-      accounts = (await client.social.getConnectedAccounts({
+      accounts = (await client.social['get-connected-accounts']({
         profileId: selectedProfile,
-      })) as any;
+      })) as ConnectedAccount[];
     }
 
-    return { profiles, selectedProfile, accounts };
+    let postData = null;
+    if (editPostId) {
+      try {
+        postData = await client.posts.get({ id: editPostId });
+      } catch (err) {
+        console.error('Failed to load post for editing:', err);
+      }
+    }
+
+    return { profiles, selectedProfile, accounts, postData };
   } catch (err) {
-    return { profiles: [], selectedProfile: '', accounts: [] };
+    console.error('error', err);
+    return { profiles: [], selectedProfile: '', accounts: [], postData: null };
   }
 }
 
-export default async function CreatePostPage() {
-  const { profiles, selectedProfile, accounts } = await getInitialData();
+export default async function CreatePostPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ edit?: string }>;
+}) {
+  const editPostId = (await searchParams)?.edit;
+  const { profiles, selectedProfile, accounts, postData } =
+    await getInitialData(editPostId);
   return (
     <CreatePostView
-      profiles={profiles as Profile[]}
+      profiles={profiles}
       initialSelectedProfile={selectedProfile}
-      initialAccounts={accounts as any}
+      initialAccounts={accounts}
+      editPostId={editPostId}
+      initialPostData={postData}
     />
   );
 }

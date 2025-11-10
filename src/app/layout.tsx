@@ -1,4 +1,5 @@
 import { SessionProvider } from '@/components/session-provider';
+import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { siteConfig } from '@/constant/config';
 import { GeistMono } from 'geist/font/mono';
@@ -53,7 +54,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <style>{`
 html {
@@ -64,10 +65,17 @@ html {
         `}</style>
       </head>
       <body>
-        <SessionProvider>
-          {children}
-          <Toaster />
-        </SessionProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <SessionProvider>
+            {children}
+            <Toaster />
+          </SessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -1,25 +1,20 @@
 'use client';
 
+import dayjs from 'dayjs';
 import type React from 'react';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -28,17 +23,21 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { client } from '@/lib/orpc/client';
 import {
+  AlertCircle,
   Calendar,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Copy,
+  Clock,
   Edit,
+  FileText,
+  Filter,
+  Image as ImageIcon,
   List,
-  MoreHorizontal,
   Plus,
   Trash2,
-  Upload,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
@@ -53,7 +52,29 @@ export type UiPost = {
   image?: string | null;
 };
 
-// Calendar helper functions and calendar view component
+// Extract display content from post content (handles both string and object formats)
+const getDisplayContent = (content: string): string => {
+  try {
+    // Try to parse if it's a JSON string
+    const parsed = JSON.parse(content);
+    if (typeof parsed === 'object' && parsed !== null) {
+      // If it's an object with platform keys, extract the first platform's content
+      const platformContents = Object.values(parsed).filter(
+        v => typeof v === 'string' && v.trim().length > 0
+      );
+      if (platformContents.length > 0) {
+        // If multiple platforms, show the first one
+        return platformContents[0] as string;
+      }
+      return JSON.stringify(parsed); // Fallback to JSON if no valid string content
+    }
+    return String(parsed);
+  } catch {
+    // If not JSON, return as-is (already a string)
+    return content;
+  }
+};
+
 const getDaysInMonth = (date: Date) => {
   return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
 };
@@ -94,10 +115,11 @@ const CalendarView = ({ posts }: { posts: any[] }) => {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Calendar Header */}
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">{formatDate(currentDate)}</h2>
+        <h2 className="text-2xl font-semibold text-foreground">
+          {formatDate(currentDate)}
+        </h2>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={previousMonth}>
             <ChevronLeft className="h-4 w-4" />
@@ -108,69 +130,110 @@ const CalendarView = ({ posts }: { posts: any[] }) => {
         </div>
       </div>
 
-      {/* Calendar Grid */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="grid grid-cols-7 gap-2">
-            {/* Day Headers */}
-            {days.map(day => (
+      <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+        <div className="grid grid-cols-7 gap-px bg-border">
+          {days.map(day => (
+            <div
+              key={day}
+              className="bg-muted p-3 text-center text-sm font-semibold text-muted-foreground"
+            >
+              {day}
+            </div>
+          ))}
+
+          {Array.from({ length: firstDay }, (_, i) => (
+            <div key={`empty-${i}`} className="bg-card p-2 min-h-[120px]"></div>
+          ))}
+
+          {Array.from({ length: daysInMonth }, (_, i) => {
+            const day = i + 1;
+            const date = new Date(
+              currentDate.getFullYear(),
+              currentDate.getMonth(),
+              day
+            );
+            const dayPosts = getPostsForDate(posts, date);
+            const isToday = date.toDateString() === new Date().toDateString();
+
+            return (
               <div
                 key={day}
-                className="p-2 text-center text-sm font-medium text-muted-foreground"
+                className={`bg-card p-2 min-h-[120px] ${
+                  isToday ? 'bg-primary/10' : ''
+                }`}
               >
-                {day}
-              </div>
-            ))}
-
-            {/* Empty cells for days before month starts */}
-            {Array.from({ length: firstDay }, (_, i) => (
-              <div key={`empty-${i}`} className="p-2 h-24"></div>
-            ))}
-
-            {/* Calendar Days */}
-            {Array.from({ length: daysInMonth }, (_, i) => {
-              const day = i + 1;
-              const date = new Date(
-                currentDate.getFullYear(),
-                currentDate.getMonth(),
-                day
-              );
-              const dayPosts = getPostsForDate(posts, date);
-              const isToday = date.toDateString() === new Date().toDateString();
-
-              return (
                 <div
-                  key={day}
-                  className={`p-2 h-24 border rounded-lg ${
-                    isToday ? 'bg-blue-50 border-blue-200' : 'border-border'
+                  className={`text-sm font-medium mb-2 ${
+                    isToday ? 'text-primary' : 'text-muted-foreground'
                   }`}
                 >
-                  <div className="text-sm font-medium mb-1">{day}</div>
-                  <div className="space-y-1">
-                    {dayPosts.slice(0, 2).map((post, idx) => (
-                      <div
-                        key={idx}
-                        className={`text-xs p-1 rounded truncate ${
-                          post.status === 'published'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-blue-100 text-blue-800'
-                        }`}
-                      >
-                        {post.content.substring(0, 20)}...
-                      </div>
-                    ))}
-                    {dayPosts.length > 2 && (
-                      <div className="text-xs text-muted-foreground">
-                        +{dayPosts.length - 2} more
-                      </div>
-                    )}
-                  </div>
+                  {day}
                 </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                <div className="space-y-1">
+                  {dayPosts.slice(0, 2).map((post, idx) => (
+                    <div
+                      key={idx}
+                      className={`text-xs p-1.5 rounded truncate ${
+                        post.status === 'published'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-primary/10 text-primary'
+                      }`}
+                    >
+                      {getDisplayContent(post.content).substring(0, 20)}...
+                    </div>
+                  ))}
+                  {dayPosts.length > 2 && (
+                    <div className="text-xs text-muted-foreground font-medium">
+                      +{dayPosts.length - 2} more
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PlatformBadge = ({
+  platform,
+  published,
+}: {
+  platform: string;
+  published: boolean;
+}) => {
+  const platformLower = platform.toLowerCase();
+
+  // Map platforms to their logo paths
+  const logoMap: Record<string, string> = {
+    facebook: '/images/logos/facebook.png',
+    instagram: '/images/logos/instagram.png',
+    linkedin: '/images/logos/linkedin.png',
+    twitter: '/images/logos/twitter.png',
+    x: '/images/logos/twitter.png', // Twitter/X uses same logo
+    reddit: '/images/logos/reddit.png',
+    youtube: '/images/logos/youtube.png',
+  };
+
+  const logoPath = logoMap[platformLower];
+
+  return (
+    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/10 text-primary border border-primary/20 text-xs font-medium">
+      {logoPath && (
+        <img
+          src={logoPath}
+          alt={platform}
+          className="h-3.5 w-3.5 object-contain"
+          onError={e => {
+            // Hide image if it fails to load
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+      )}
+      <span>{platform}</span>
+      <Clock className="h-3 w-3" />
     </div>
   );
 };
@@ -189,14 +252,27 @@ export default function PostsView({
   const [filterProfiles, setFilterProfiles] = useState('all');
   const [filterDates, setFilterDates] = useState('all');
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [importPreview, setImportPreview] = useState<any[]>([]);
   const [isImporting, setIsImporting] = useState(false);
+  const [expandedPosts, setExpandedPosts] = useState<Record<string, boolean>>(
+    {}
+  );
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [postToDelete, setPostToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
   const getPostDate = (post: UiPost) => {
     const d = new Date(post.scheduled || post.created || 0);
     return isNaN(d.getTime()) ? null : d;
+  };
+
+  const formatDateTime = (value?: string | null) => {
+    if (!value) return null;
+    const d = dayjs(value);
+    return d.isValid() ? d.format('MMM D, YYYY h:mm A') : null;
   };
 
   const isInDateFilter = (post: UiPost): boolean => {
@@ -211,7 +287,7 @@ export default function PostsView({
 
     if (filterDates === 'week') {
       const day = now.getDay();
-      const diffToStart = (day + 6) % 7; // start Monday
+      const diffToStart = (day + 6) % 7;
       const start = new Date(now);
       start.setHours(0, 0, 0, 0);
       start.setDate(now.getDate() - diffToStart);
@@ -307,7 +383,6 @@ export default function PostsView({
         setShowImportDialog(false);
         setCsvFile(null);
         setImportPreview([]);
-        // Optionally refresh posts via orpc on demand in future
       } else {
         toast({
           title: 'Import failed',
@@ -341,338 +416,350 @@ export default function PostsView({
     window.URL.revokeObjectURL(url);
   };
 
+  const toggleExpand = (postId: string) => {
+    setExpandedPosts(prev => ({
+      ...prev,
+      [postId]: !prev[postId],
+    }));
+  };
+
+  const handleDeleteClick = (postId: string) => {
+    setPostToDelete(postId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeletePost = async () => {
+    if (!postToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const result = await client.posts.delete({ id: postToDelete });
+
+      if (result.success) {
+        // Remove from local state
+        setPosts(prev => prev.filter(p => p.id !== postToDelete));
+        toast({
+          title: 'Post deleted',
+          description: 'The post has been deleted successfully',
+        });
+        setDeleteDialogOpen(false);
+        setPostToDelete(null);
+      } else {
+        throw new Error('Delete failed');
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete post',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const CONTENT_PREVIEW_LENGTH = 150;
+
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-wrap flex-row gap-4 items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Posts</h1>
-          <p className="text-muted-foreground">
-            manage your scheduled and published content
-          </p>
-        </div>
-        <div className="flex flex-wrap flex-row items-center gap-2">
-          <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Upload className="h-4 w-4 mr-2" />
-                import CSV
+    <div className="bg-background p-4 rounded-2xl space-y-8">
+      <div className="space-y-8">
+        {/* Filters and View Toggle */}
+        <div className="bg-card rounded-xl border border-border p-4 lg:p-5 shadow-sm">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+                className="lg:hidden"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Filters
               </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl">
-              <DialogHeader>
-                <DialogTitle>Import Posts from CSV</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="bg-muted/50 p-4 rounded-lg">
-                  <h4 className="font-medium mb-2">CSV Format Requirements</h4>
-                  <div className="text-sm space-y-2">
-                    <p>
-                      <strong>Required columns:</strong>
-                    </p>
-                    <ul className="list-disc list-inside ml-4 space-y-1">
-                      <li>
-                        <code>content</code> - Your post text content
-                      </li>
-                      <li>
-                        <code>scheduled_time</code> - Format: YYYY-MM-DD
-                        HH:MM:SS (e.g., 2025-08-21 15:30:00)
-                      </li>
-                      <li>
-                        <code>platforms</code> - Semicolon-separated list (e.g.,
-                        instagram;facebook;twitter)
-                      </li>
-                    </ul>
-                    <p>
-                      <strong>Optional columns:</strong>
-                    </p>
-                    <ul className="list-disc list-inside ml-4 space-y-1">
-                      <li>
-                        <code>timezone</code> - Timezone (e.g.,
-                        America/New_York, UTC) - defaults to UTC
-                      </li>
-                      <li>
-                        <code>media_url</code> - URL to image/video for the post
-                      </li>
-                    </ul>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={downloadCSVTemplate}
-                      className="mt-2 bg-transparent"
-                    >
-                      Download Template CSV
-                    </Button>
-                  </div>
-                </div>
+              <div
+                className={`${showFilters ? 'flex' : 'hidden'} lg:flex flex-wrap items-center gap-2 lg:gap-3`}
+              >
+                <Select value={filterPosts} onValueChange={setFilterPosts}>
+                  <SelectTrigger className="w-32 lg:w-36">
+                    <SelectValue placeholder="All posts" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All posts</SelectItem>
+                    <SelectItem value="published">Published</SelectItem>
+                    <SelectItem value="scheduled">Scheduled</SelectItem>
+                    <SelectItem value="draft">Draft</SelectItem>
+                  </SelectContent>
+                </Select>
 
-                <div>
-                  <Label htmlFor="csv-file">Select CSV File</Label>
-                  <Input
-                    id="csv-file"
-                    type="file"
-                    accept=".csv"
-                    onChange={handleFileSelect}
-                    className="mt-1"
-                  />
-                </div>
+                <Select
+                  value={filterPlatforms}
+                  onValueChange={setFilterPlatforms}
+                >
+                  <SelectTrigger className="w-36 lg:w-40">
+                    <SelectValue placeholder="All platforms" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All platforms</SelectItem>
+                    <SelectItem value="instagram">Instagram</SelectItem>
+                    <SelectItem value="facebook">Facebook</SelectItem>
+                    <SelectItem value="linkedin">LinkedIn</SelectItem>
+                    <SelectItem value="twitter">Twitter</SelectItem>
+                  </SelectContent>
+                </Select>
 
-                {importPreview.length > 0 && (
-                  <div>
-                    <Label>Preview (first 5 rows)</Label>
-                    <div className="mt-2 border rounded-lg overflow-hidden">
-                      <div className="bg-muted p-2 text-sm font-medium">
-                        {Object.keys(importPreview[0]).join(' | ')}
-                      </div>
-                      {importPreview.map((row, index) => (
-                        <div key={index} className="p-2 text-sm border-t">
-                          {Object.values(row).join(' | ')}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <Select
+                  value={filterProfiles}
+                  onValueChange={setFilterProfiles}
+                >
+                  <SelectTrigger className="w-32 lg:w-36">
+                    <SelectValue placeholder="All profiles" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All profiles</SelectItem>
+                    <SelectItem value="profile1">ThinkRoman</SelectItem>
+                  </SelectContent>
+                </Select>
 
-                <div className="flex justify-end gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowImportDialog(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleImportCSV}
-                    disabled={!csvFile || isImporting}
-                  >
-                    {isImporting ? 'Importing...' : 'Import Posts'}
-                  </Button>
-                </div>
+                <Select value={filterDates} onValueChange={setFilterDates}>
+                  <SelectTrigger className="w-32 lg:w-36">
+                    <SelectValue placeholder="All dates" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All dates</SelectItem>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="week">This week</SelectItem>
+                    <SelectItem value="month">This month</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </DialogContent>
-          </Dialog>
-          <Link href="/dashboard/create-post">
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              create post
-            </Button>
-          </Link>
-        </div>
-      </div>
+            </div>
 
-      {/* View Toggle and Filters */}
-      <div className="flex flex-wrap flex-row items-center justify-between gap-4">
-        <div className="flex flex-wrap flex-row items-center gap-4">
-          <Select value={filterPosts} onValueChange={setFilterPosts}>
-            <SelectTrigger className="w-32">
-              <SelectValue placeholder="All posts" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All posts</SelectItem>
-              <SelectItem value="published">Published</SelectItem>
-              <SelectItem value="scheduled">Scheduled</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={filterPlatforms} onValueChange={setFilterPlatforms}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="All platforms" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All platforms</SelectItem>
-              <SelectItem value="instagram">Instagram</SelectItem>
-              <SelectItem value="facebook">Facebook</SelectItem>
-              <SelectItem value="linkedin">LinkedIn</SelectItem>
-              <SelectItem value="twitter">Twitter</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={filterProfiles} onValueChange={setFilterProfiles}>
-            <SelectTrigger className="w-36">
-              <SelectValue placeholder="All profiles" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All profiles</SelectItem>
-              <SelectItem value="profile1">ThinkRoman</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={filterDates} onValueChange={setFilterDates}>
-            <SelectTrigger className="w-32">
-              <SelectValue placeholder="All dates" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All dates</SelectItem>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="week">This week</SelectItem>
-              <SelectItem value="month">This month</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant={viewMode === 'list' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setViewMode('list')}
-          >
-            <List className="h-4 w-4 mr-2" />
-            List
-          </Button>
-          <Button
-            variant={viewMode === 'calendar' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setViewMode('calendar')}
-          >
-            <Calendar className="h-4 w-4 mr-2" />
-            Calendar
-          </Button>
+            <div className="flex items-center gap-2 border border-border rounded-lg p-1">
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className={
+                  viewMode === 'list'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground'
+                }
+              >
+                <List className="h-4 w-4 mr-2" />
+                List
+              </Button>
+              <Button
+                variant={viewMode === 'calendar' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('calendar')}
+                className={
+                  viewMode === 'calendar'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground'
+                }
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Calendar
+              </Button>
+              <Link href="/dashboard/create-post">
+                <Button className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
+                  <Plus className="h-4 w-4" />
+                  <span>Create Post</span>
+                </Button>
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
 
       {viewMode === 'list' ? (
-        /* Posts List */
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {loading && (
-            <Card>
-              <CardContent className="p-6">Loading posts…</CardContent>
-            </Card>
+            <div className="bg-card rounded-xl border border-border p-8 lg:p-12 text-center shadow-sm">
+              <p className="text-muted-foreground">Loading posts...</p>
+            </div>
           )}
           {error && !loading && (
-            <Card>
-              <CardContent className="p-6 text-red-600">{error}</CardContent>
-            </Card>
+            <div className="bg-card rounded-xl border border-destructive p-8 lg:p-12 text-center shadow-sm">
+              <p className="text-destructive">{error}</p>
+            </div>
           )}
           {!loading && !error && filteredPosts.length === 0 && (
-            <Card>
-              <CardContent className="p-6">No posts found.</CardContent>
-            </Card>
+            <div className="bg-card rounded-xl border border-border p-12 lg:p-16 text-center shadow-sm">
+              <FileText className="h-12 w-12 lg:h-16 lg:w-16 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground text-base lg:text-lg">
+                No posts found
+              </p>
+              <p className="text-muted-foreground text-sm mt-2">
+                Try adjusting your filters or create a new post
+              </p>
+            </div>
           )}
           {!loading &&
             !error &&
             filteredPosts.map(post => (
-              <Card key={post.id}>
-                <CardContent className="relative">
-                  <div className="flex flex-col md:flex-row gap-3 md:gap-4">
+              <div
+                key={post.id}
+                className="bg-card rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+              >
+                <div className="p-4 lg:p-6">
+                  <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
                     {/* Post Image */}
-                    <div className="w-16 h-16 md:w-24 md:h-24 bg-muted rounded-md overflow-hidden flex-shrink-0">
-                      <img
-                        src={post.image || '/placeholder.svg'}
-                        alt="Post preview"
-                        className="w-full h-full object-cover"
-                      />
+                    <div className="w-full lg:w-32 h-48 lg:h-32 bg-muted rounded-lg overflow-hidden flex-shrink-0 relative">
+                      {post.image ? (
+                        <img
+                          src={post.image}
+                          alt="Post preview"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ImageIcon className="h-10 w-10 lg:h-12 lg:w-12 text-muted-foreground" />
+                        </div>
+                      )}
                     </div>
 
                     {/* Post Content */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between mb-1 md:mb-2 gap-2 ">
-                        <Badge
-                          className="absolute top-2 right-2 px-2 py-0.5 text-[10px] md:text-xs"
-                          variant={
-                            post.status === 'published'
-                              ? 'default'
-                              : 'secondary'
-                          }
-                        >
+                      <div className="mb-3 lg:mb-4">
+                        <div className="flex items-center gap-2 mb-2">
                           {post.status === 'published' ? (
-                            <>
-                              <div className="w-2 h-2 bg-green-500 rounded-full mr-1" />
+                            <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-400/30">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
                               Published
-                            </>
-                          ) : (
-                            <>
-                              <div className="w-2 h-2 bg-blue-500 rounded-full mr-1" />
+                            </Badge>
+                          ) : post.status === 'scheduled' ? (
+                            <Badge className="bg-primary/15 text-primary border-primary/30">
+                              <Clock className="h-3 w-3 mr-1" />
                               Scheduled
-                            </>
+                            </Badge>
+                          ) : post.status === 'error' ? (
+                            <Badge className="bg-destructive/15 text-destructive border-destructive/30">
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                              Error
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-muted text-muted-foreground border-border">
+                              <FileText className="h-3 w-3 mr-1" />
+                              Draft
+                            </Badge>
                           )}
-                        </Badge>
-                        <p className="text-sm md:text-sm text-muted-foreground line-clamp-2 md:line-clamp-3">
-                          {post.content}
-                        </p>
-                        <div className="flex items-center gap-1 md:gap-2 ml-0 md:ml-4">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
-                                <Edit className="h-4 w-4 mr-2" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <Copy className="h-4 w-4 mr-2" />
-                                Duplicate
-                              </DropdownMenuItem>
-                              <DropdownMenuItem className="text-red-600">
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                        </div>
+                        <div className="text-sm lg:text-base text-foreground leading-relaxed break-words">
+                          {(() => {
+                            const displayContent = getDisplayContent(
+                              post.content
+                            );
+                            const shouldTruncate =
+                              displayContent.length > CONTENT_PREVIEW_LENGTH;
+                            const isExpanded = expandedPosts[post.id];
+
+                            return (
+                              <>
+                                <p>
+                                  {isExpanded || !shouldTruncate
+                                    ? displayContent
+                                    : `${displayContent.substring(0, CONTENT_PREVIEW_LENGTH)}...`}
+                                </p>
+                                {shouldTruncate && (
+                                  <button
+                                    onClick={() => toggleExpand(post.id)}
+                                    className="text-primary hover:text-primary/80 mt-1 text-sm underline cursor-pointer"
+                                  >
+                                    {isExpanded ? 'show less' : 'show more'}
+                                  </button>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
 
                       {/* Post Meta */}
-                      <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs md:text-sm text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <span className="whitespace-nowrap">scheduled</span>
-                          <span className="truncate">
-                            {post.scheduled || '—'}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 lg:gap-3 mb-3 lg:mb-4">
+                        <div className="flex items-center gap-2 text-xs lg:text-sm text-muted-foreground">
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium text-foreground">
+                            Scheduled:
+                          </span>
+                          <span>
+                            {formatDateTime(post.scheduled) || 'Not scheduled'}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="whitespace-nowrap">created</span>
-                          <span className="truncate">
-                            {post.created || '—'}
+                        <div className="flex items-center gap-2 text-xs lg:text-sm text-muted-foreground">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium text-foreground">
+                            Created:
                           </span>
-                        </div>
-                        <div className="flex items-center gap-2 sm:col-span-2">
-                          <span className="whitespace-nowrap">id</span>
-                          <span className="truncate">{post.id}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-auto p-0 ml-1"
-                          >
-                            <Copy className="h-3 w-3" />
-                          </Button>
+                          <span>{formatDateTime(post.created) || '—'}</span>
                         </div>
                       </div>
 
-                      {/* Platforms */}
-                      <div className="flex flex-wrap items-center gap-1 md:gap-2 mt-2">
-                        <span className="text-xs md:text-sm text-muted-foreground">
-                          platforms:
-                        </span>
-                        {post.platforms.map(platform => (
-                          <Badge
-                            key={platform}
+                      {/* Platforms and Actions */}
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {post.platforms.map(platform => (
+                            <PlatformBadge
+                              key={platform}
+                              platform={platform}
+                              published={false}
+                            />
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <Link href={`/dashboard/create-post?edit=${post.id}`}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-2 text-blue-600 border-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                            >
+                              <Edit className="h-4 w-4" />
+                              <span className="hidden sm:inline">Edit</span>
+                            </Button>
+                          </Link>
+                          <Button
                             variant="outline"
-                            className="text-[10px] md:text-xs px-2 py-0.5"
+                            size="sm"
+                            onClick={() => handleDeleteClick(post.id)}
+                            className="gap-2 text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700"
                           >
-                            {platform}
-                            {post.status === 'published' && (
-                              <div className="w-2 h-2 bg-green-500 rounded-full ml-1" />
-                            )}
-                          </Badge>
-                        ))}
+                            <Trash2 className="h-4 w-4" />
+                            <span className="hidden sm:inline">Delete</span>
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ))}
         </div>
       ) : (
-        /* Calendar View */
         <CalendarView posts={filteredPosts} />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Post</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this post? This action cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePost}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

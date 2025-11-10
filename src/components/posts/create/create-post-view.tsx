@@ -2,7 +2,9 @@
 
 import type React from 'react';
 
-import { Button } from '@/components/ui/button';
+import { ComposerSection } from '@/components/posts/create/composer-section';
+import { GeneratedPreview } from '@/components/posts/create/generated-preview';
+import { ScheduleSection } from '@/components/posts/create/scheduled-section';
 import {
   Card,
   CardContent,
@@ -11,9 +13,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Select,
   SelectContent,
@@ -21,11 +21,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { client } from '@/lib/orpc/client';
+import {
+  CreatePostFormSchema,
+  type CreatePostFormValues,
+} from '@/schemas/post';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { ConnectedAccount } from '@prisma/client';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
 
 type Profile = {
   id: string;
@@ -33,106 +39,42 @@ type Profile = {
   slug?: string;
 };
 
-type Account = {
-  id: string;
-  platform:
-    | 'instagram'
-    | 'facebook'
-    | 'linkedin'
-    | 'youtube'
-    | 'tiktok'
-    | 'threads'
-    | 'twitter';
-  username?: string;
-  handle?: string;
-  displayName?: string | null;
-};
-
 type GeneratedContent = string | { caption?: string; image?: string };
 type Bundle = Record<string, GeneratedContent>;
-
-const timezones = [
-  { value: 'America/New_York', label: 'Eastern Time (ET)' },
-  { value: 'America/Chicago', label: 'Central Time (CT)' },
-  { value: 'America/Denver', label: 'Mountain Time (MT)' },
-  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
-  { value: 'America/Phoenix', label: 'Arizona Time (MST)' },
-  { value: 'America/Anchorage', label: 'Alaska Time (AKST)' },
-  { value: 'Pacific/Honolulu', label: 'Hawaii Time (HST)' },
-  { value: 'Europe/London', label: 'Greenwich Mean Time (GMT)' },
-  { value: 'Europe/Paris', label: 'Central European Time (CET)' },
-  { value: 'Asia/Tokyo', label: 'Japan Standard Time (JST)' },
-  { value: 'Asia/Shanghai', label: 'China Standard Time (CST)' },
-  { value: 'Asia/Kolkata', label: 'India Standard Time (IST)' },
-  { value: 'Australia/Sydney', label: 'Australian Eastern Time (AEST)' },
-];
-
-const contentTypes = [
-  {
-    value: 'promotional',
-    label: 'Promotional',
-    description: 'Product launches, sales, offers',
-  },
-  {
-    value: 'educational',
-    label: 'Educational',
-    description: 'Tips, tutorials, how-tos',
-  },
-  {
-    value: 'inspirational',
-    label: 'Inspirational',
-    description: 'Quotes, motivation, success stories',
-  },
-  {
-    value: 'behind-scenes',
-    label: 'Behind Scenes',
-    description: 'Company culture, team updates',
-  },
-  {
-    value: 'user-generated',
-    label: 'User Content',
-    description: 'Reviews, testimonials, features',
-  },
-  {
-    value: 'trending',
-    label: 'Trending',
-    description: 'Current events, viral topics',
-  },
-];
-
-const toneOptions = [
-  { value: 'professional', label: 'Professional', emoji: '💼' },
-  { value: 'casual', label: 'Casual', emoji: '😊' },
-  { value: 'friendly', label: 'Friendly', emoji: '🤝' },
-  { value: 'humorous', label: 'Humorous', emoji: '😄' },
-  { value: 'inspirational', label: 'Inspirational', emoji: '✨' },
-  { value: 'urgent', label: 'Urgent', emoji: '⚡' },
-];
 
 interface CreatePostViewProps {
   profiles: Profile[];
   initialSelectedProfile?: string;
-  initialAccounts: Account[];
+  initialAccounts: ConnectedAccount[];
+  editPostId?: string;
+  initialPostData?: any;
 }
 
 export default function CreatePostView({
   profiles,
   initialSelectedProfile,
   initialAccounts,
+  editPostId,
+  initialPostData,
 }: CreatePostViewProps) {
   const { toast } = useToast();
-
+  const queryClient = useQueryClient();
   const [selectedProfileId, setSelectedProfileId] = useState<string>(
     initialSelectedProfile || ''
   );
-  const [accounts, setAccounts] = useState<Account[]>(initialAccounts || []);
+  const [accounts, setAccounts] = useState<ConnectedAccount[]>(
+    initialAccounts || []
+  );
   const [selected, setSelected] = useState<Record<string, boolean>>({});
 
   const [topic, setTopic] = useState('');
-  const [tone, setTone] = useState('professional');
-  const [contentType, setContentType] = useState('promotional');
-  const [targetPlatform, setTargetPlatform] = useState('instagram');
+  const [tone, setTone] = useState('');
+  const [contentType, setContentType] = useState('');
+  const [targetPlatforms, setTargetPlatforms] = useState<string[]>([]);
   const [bundle, setBundle] = useState<Bundle | null>(null);
+  // Media per platform: Record<platform, mediaItems[]>
+  const [platformMedia, setPlatformMedia] = useState<Record<string, any[]>>({});
+  // Legacy state for MediaSection (will be removed)
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploadedMedia, setUploadedMedia] = useState<any[]>([]);
   const [mediaPrompt, setMediaPrompt] = useState('');
@@ -147,6 +89,24 @@ export default function CreatePostView({
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
 
+  const form = useForm<CreatePostFormValues>({
+    resolver: zodResolver(CreatePostFormSchema),
+    defaultValues: {
+      profileId: initialSelectedProfile || '',
+      accounts: [],
+      platform: (targetPlatforms[0] || '') as any,
+      contentType: (contentType || '') as any,
+      tone: (tone || '') as any,
+      topic: '',
+      mediaItems: [],
+      publishingOption: publishingOption as any,
+      scheduledDate: '',
+      scheduledTime: '',
+      timezone,
+      bundle: {},
+    },
+  });
+
   useEffect(() => {
     if (!initialAccounts?.length) return;
     const defaultSelected: Record<string, boolean> = {};
@@ -154,19 +114,130 @@ export default function CreatePostView({
     setSelected(defaultSelected);
   }, [initialAccounts]);
 
+  // Load post data when editing
+  useEffect(() => {
+    if (editPostId && initialPostData) {
+      // Populate form with existing post data
+      setSelectedProfileId(
+        initialPostData.profileId || initialSelectedProfile || ''
+      );
+
+      // Load accounts for the post's profile
+      if (initialPostData.profileId) {
+        client.social['get-connected-accounts']({
+          profileId: initialPostData.profileId,
+        })
+          .then((accountList: any) => {
+            const normalized: ConnectedAccount[] = (accountList || []).map(
+              (a: any) => ({
+                id: a.id,
+                platform: a.platform?.toLowerCase(),
+                username: a.username,
+                displayName: a.displayName,
+                connectedAt: a.connectedAt,
+                isActive: a.isActive,
+              })
+            );
+            setAccounts(normalized);
+
+            // Select the accounts that were used in the post
+            const selectedMap: Record<string, boolean> = {};
+            initialPostData.platforms?.forEach((p: any) => {
+              const account = normalized.find(a => a.id === p.accountId);
+              if (account) {
+                selectedMap[account.id] = true;
+              }
+            });
+            setSelected(selectedMap);
+          })
+          .catch(() => {
+            setAccounts([]);
+          });
+      }
+
+      // Extract platforms from post data
+      const postPlatforms =
+        initialPostData.platforms
+          ?.map((p: any) => p.platform?.toLowerCase())
+          .filter(Boolean) || [];
+      setTargetPlatforms(postPlatforms);
+
+      // Load content into bundle
+      if (initialPostData.content) {
+        if (typeof initialPostData.content === 'string') {
+          // If content is a string, create a simple bundle
+          const bundleObj: Bundle = {};
+          postPlatforms.forEach((platform: string) => {
+            bundleObj[platform] = initialPostData.content;
+          });
+          setBundle(bundleObj);
+        } else if (typeof initialPostData.content === 'object') {
+          // If content is an object, use it directly as bundle
+          setBundle(initialPostData.content);
+        }
+      }
+
+      // Load media items
+      if (initialPostData.mediaUrls && initialPostData.mediaUrls.length > 0) {
+        const mediaItems = initialPostData.mediaUrls.map((url: string) => ({
+          url,
+          type: url.match(/\.(mp4|mov|avi)$/i)
+            ? ('video' as const)
+            : ('image' as const),
+        }));
+        setUploadedMedia(mediaItems);
+
+        // Set platform media for each platform
+        const platformMediaObj: Record<string, any[]> = {};
+        postPlatforms.forEach((platform: string) => {
+          platformMediaObj[platform] = mediaItems;
+        });
+        setPlatformMedia(platformMediaObj);
+      }
+
+      // Set publishing option
+      const publishingOpt =
+        initialPostData.publishingOption?.toLowerCase() ||
+        (initialPostData.status === 'SCHEDULED'
+          ? 'schedule'
+          : initialPostData.status === 'PUBLISHED'
+            ? 'now'
+            : 'draft');
+      setPublishingOption(publishingOpt);
+
+      // Set scheduled date/time if scheduled
+      if (initialPostData.scheduledFor && publishingOpt === 'schedule') {
+        const scheduledDateObj = new Date(initialPostData.scheduledFor);
+        setScheduledDate(scheduledDateObj.toISOString().split('T')[0]);
+        setScheduledTime(
+          scheduledDateObj.toTimeString().split(' ')[0].slice(0, 5)
+        );
+      }
+
+      // Set timezone
+      if (initialPostData.timezone) {
+        setTimezone(initialPostData.timezone);
+      }
+    }
+  }, [editPostId, initialPostData, initialSelectedProfile]);
+
   useEffect(() => {
     if (!selectedProfileId) return;
     async function loadAccounts() {
       try {
-        const accountList = await client.social.getConnectedAccounts({
+        const accountList = await client.social['get-connected-accounts']({
           profileId: selectedProfileId,
         });
-        const normalized: Account[] = (accountList as any).map((a: any) => ({
-          id: a.id,
-          platform: a.platform.toLowerCase(),
-          username: a.username,
-          displayName: a.displayName,
-        }));
+        const normalized: ConnectedAccount[] = (accountList as any).map(
+          (a: any) => ({
+            id: a.id,
+            platform: a.platform.toLowerCase(),
+            username: a.username,
+            displayName: a.displayName,
+            connectedAt: a.connectedAt,
+            isActive: a.isActive,
+          })
+        );
         setAccounts(normalized);
         const defaultSelected: Record<string, boolean> = {};
         normalized.forEach(account => {
@@ -211,23 +282,179 @@ export default function CreatePostView({
       });
       return;
     }
-    setBusy(true);
-    try {
-      const data = await client.posts.compose({
-        prompt: topic,
-        tone,
-        platform: targetPlatform as any,
-        contentType: contentType as any,
-      });
-      setBundle(data as any);
-      toast({
-        title: 'Success',
-        description: `Content generated for ${targetPlatform.toUpperCase()}!`,
-      });
-    } catch {
+    if (targetPlatforms.length === 0) {
       toast({
         title: 'Error',
-        description: 'Failed to generate content',
+        description: 'Please select at least one platform',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!contentType) {
+      toast({
+        title: 'Error',
+        description: 'Please select a content type',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!tone) {
+      toast({
+        title: 'Error',
+        description: 'Please select a tone',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setBusy(true);
+    try {
+      // Pre-check AI quota for multiple platforms
+      try {
+        const quota = await client.quota.status({});
+        // Enforce BYOK requirement on Free tier
+        const tier = quota?.tier;
+        let localAi: any = undefined;
+        try {
+          const raw = localStorage.getItem('aiSettings');
+          localAi = raw ? JSON.parse(raw) : undefined;
+        } catch {}
+        const hasBYOK = !!localAi?.openaiKey || !!localAi?.geminiKey;
+        if (tier === 'FREE' && !hasBYOK) {
+          toast({
+            title: 'AI unavailable on Free',
+            description:
+              'Add your own OpenAI or Gemini API key in Dashboard → API Keys to generate content.',
+            variant: 'destructive',
+          });
+          return;
+        }
+        const ai = quota?.ai?.daily;
+        if (ai && ai.limit === 0) {
+          // If BYOK is present, allow; otherwise block
+          if (!hasBYOK)
+            throw new Error('AI generation is not available on your plan');
+        }
+        // Check quota for multiple platforms (skip if BYOK is present)
+        if (
+          !hasBYOK &&
+          ai &&
+          ai.limit !== -1 &&
+          ai.used + targetPlatforms.length > ai.limit
+        ) {
+          throw new Error('Daily AI limit reached');
+        }
+      } catch (e: any) {
+        if (e?.message) {
+          toast({
+            title: 'Limit reached',
+            description: e.message,
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+      let aiConfig: any = undefined;
+      try {
+        const raw = localStorage.getItem('aiSettings');
+        const selRaw = localStorage.getItem('aiSelection');
+        const selection = selRaw ? JSON.parse(selRaw) : undefined;
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const wantsBYOK = !!selection?.useUserKey;
+          if (wantsBYOK) {
+            const provider =
+              selection?.provider === 'gemini' ? 'gemini' : 'openai';
+            const apiKey =
+              provider === 'openai' ? parsed.openaiKey : parsed.geminiKey;
+            if (apiKey) {
+              const model =
+                provider === 'openai' ? 'gpt-5' : 'models/gemini-2.5-pro';
+              aiConfig = { useUserKey: true, provider, apiKey, model };
+            }
+          }
+        }
+      } catch {}
+
+      // Generate content for each selected platform
+      const newBundle: Bundle = {};
+      const failures: string[] = [];
+      let successCount = 0;
+
+      for (const platform of targetPlatforms) {
+        try {
+          const data = await client.posts.compose({
+            prompt: topic,
+            tone,
+            platform: platform as any,
+            contentType: contentType as any,
+            aiConfig,
+          });
+
+          // Merge the response into the bundle
+          if (data && typeof data === 'object') {
+            Object.assign(newBundle, data);
+            successCount += 1;
+          } else {
+            // If response is just a string, use the platform as key
+            newBundle[platform] = data;
+            successCount += 1;
+          }
+        } catch (e: any) {
+          // If one platform fails, continue with others
+          console.error(`Failed to generate content for ${platform}:`, e);
+          // Add error placeholder for this platform
+          failures.push(platform);
+        }
+      }
+
+      if (successCount > 0) {
+        setBundle(newBundle);
+        // Initialize empty media arrays for each platform
+        const initialMedia: Record<string, any[]> = {};
+        Object.keys(newBundle).forEach(platform => {
+          initialMedia[platform] = [];
+        });
+        setPlatformMedia(initialMedia);
+        await queryClient.invalidateQueries({ queryKey: ['quota', 'status'] });
+
+        const platformList = Object.keys(newBundle)
+          .map(p => p.toUpperCase())
+          .join(', ');
+        toast({
+          title: 'Success',
+          description: `Content generated for ${successCount} ${successCount === 1 ? 'platform' : 'platforms'}: ${platformList}.`,
+        });
+
+        if (failures.length) {
+          toast({
+            title: 'Some platforms failed',
+            description: failures.map(p => p.toUpperCase()).join(', '),
+            variant: 'destructive',
+          });
+        }
+      } else {
+        // No success — stay on composer and show one clear error
+        toast({
+          title: 'Generation failed',
+          description:
+            'Could not generate content. Try again or add your own AI key in Dashboard → API Keys.',
+          variant: 'destructive',
+        });
+      }
+    } catch (e: any) {
+      const errMessage =
+        e?.message ||
+        e?.data?.message ||
+        e?.response?.data?.error ||
+        e?.response?.data?.message ||
+        'Failed to generate content';
+      const title =
+        e?.upgradeRequired || e?.data?.upgradeRequired
+          ? 'Upgrade required'
+          : 'Error';
+      toast({
+        title,
+        description: String(errMessage),
         variant: 'destructive',
       });
     } finally {
@@ -265,7 +492,7 @@ export default function CreatePostView({
     try {
       const key = `${Date.now()}-${file.name}`;
       const presign = await client.posts.presignUpload({ key });
-      const uploadUrl = (presign as any).presignedUrl as string | undefined;
+      const uploadUrl = presign?.presignedUrl as string | undefined;
       if (!uploadUrl) throw new Error('Failed to get presigned URL');
 
       const uploadRes = await fetch(uploadUrl, {
@@ -275,7 +502,7 @@ export default function CreatePostView({
       });
       if (!uploadRes.ok) throw new Error('Upload failed');
 
-      const publicUrl = (presign as any).publicUrl || key;
+      const publicUrl = presign?.publicUrl || key;
       setUploadedMedia([
         {
           url: publicUrl,
@@ -284,6 +511,7 @@ export default function CreatePostView({
           size: file.size,
         },
       ]);
+
       toast({
         title: 'Success',
         description: file.type.startsWith('video/')
@@ -302,6 +530,104 @@ export default function CreatePostView({
     }
   }
 
+  async function handlePlatformMediaUpload(
+    platform: string,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'video/mp4',
+      'video/mov',
+      'video/avi',
+      'video/quicktime',
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: 'Error',
+        description:
+          'Please upload an image (JPEG, PNG, GIF, WebP) or video (MP4, MOV, AVI)',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setBusy(true);
+    setUploading(true);
+    try {
+      const key = `${Date.now()}-${file.name}`;
+      const presign = await client.posts.presignUpload({ key });
+      const uploadUrl = presign?.presignedUrl as string | undefined;
+      if (!uploadUrl) throw new Error('Failed to get presigned URL');
+
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      });
+      if (!uploadRes.ok) throw new Error('Upload failed');
+
+      const publicUrl = presign?.publicUrl || key;
+      const mediaItem = {
+        url: publicUrl,
+        type: file.type.startsWith('video/') ? 'video' : 'image',
+        filename: file.name,
+        size: file.size,
+      };
+
+      setPlatformMedia(prev => ({
+        ...prev,
+        [platform]: [...(prev[platform] || []), mediaItem],
+      }));
+
+      toast({
+        title: 'Success',
+        description: file.type.startsWith('video/')
+          ? 'Video uploaded successfully!'
+          : 'Image uploaded successfully!',
+      });
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to upload media',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploading(false);
+      setBusy(false);
+    }
+  }
+
+  function handleUseSameMediaAsFirst(platform: string) {
+    if (!bundle) return;
+    const platforms = Object.keys(bundle);
+    if (platforms.length === 0) return;
+    const firstPlatform = platforms[0];
+    const firstPlatformMedia = platformMedia[firstPlatform] || [];
+
+    setPlatformMedia(prev => ({
+      ...prev,
+      [platform]: [...firstPlatformMedia],
+    }));
+
+    toast({
+      title: 'Media copied',
+      description: `Using same media as ${firstPlatform}`,
+    });
+  }
+
+  function handleRemovePlatformMedia(platform: string, index: number) {
+    setPlatformMedia(prev => ({
+      ...prev,
+      [platform]: (prev[platform] || []).filter((_, i) => i !== index),
+    }));
+  }
+
   async function handleGenerateImage() {
     if (!mediaPrompt.trim()) {
       toast({
@@ -313,25 +639,99 @@ export default function CreatePostView({
     }
     setBusy(true);
     try {
-      const data = await client.posts.generateImage({ prompt: mediaPrompt });
-      if ((data as any).imageUrl) {
-        setGeneratedImageUrl((data as any).imageUrl);
+      // Pre-check AI quota (image counts as 5 units)
+      try {
+        const quota = await client.quota.status({});
+        // Enforce BYOK requirement on Free tier
+        const tier = quota?.tier;
+        let localAi: any = undefined;
+        try {
+          const raw = localStorage.getItem('aiSettings');
+          localAi = raw ? JSON.parse(raw) : undefined;
+        } catch {}
+        const hasBYOK = !!localAi?.openaiKey || !!localAi?.geminiKey;
+        if (tier === 'FREE' && !hasBYOK) {
+          toast({
+            title: 'AI unavailable on Free',
+            description:
+              'Add your own OpenAI or Gemini API key in Dashboard → API Keys to generate images.',
+            variant: 'destructive',
+          });
+          return;
+        }
+        const ai = quota?.ai?.daily;
+        if (ai && ai.limit === 0) {
+          if (!hasBYOK)
+            throw new Error(
+              'AI image generation is not available on your plan'
+            );
+        }
+        if (ai && ai.limit !== -1 && ai.used + 5 > ai.limit) {
+          throw new Error('Not enough AI units for image generation');
+        }
+      } catch (e: any) {
+        if (e?.message) {
+          toast({
+            title: 'Limit reached',
+            description: e.message,
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+      let aiConfig: any = undefined;
+      try {
+        const raw = localStorage.getItem('aiSettings');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const hasOpenAI = !!parsed.openaiKey;
+          if (hasOpenAI) {
+            aiConfig = {
+              useUserKey: true,
+              provider: 'openai',
+              apiKey: parsed.openaiKey,
+            };
+          }
+        }
+      } catch {}
+      const data = await client.posts.generateImage({
+        prompt: mediaPrompt,
+        aiConfig,
+      });
+      if (data.imageUrl) {
+        setGeneratedImageUrl(data.imageUrl);
         setUploadedMedia([
           {
-            url: (data as any).imageUrl,
+            url: data.imageUrl,
             type: 'image',
             filename: 'generated-image.png',
           },
         ]);
+        // Revalidate quota after image generation
+        try {
+          await queryClient.invalidateQueries({
+            queryKey: ['quota', 'status'],
+          });
+        } catch {}
         toast({
           title: 'Success',
           description: 'Image generated successfully!',
         });
       }
-    } catch {
+    } catch (e: any) {
+      const errMessage =
+        e?.message ||
+        e?.data?.message ||
+        e?.response?.data?.error ||
+        e?.response?.data?.message ||
+        'Failed to generate image';
+      const title =
+        e?.upgradeRequired || e?.data?.upgradeRequired
+          ? 'Upgrade required'
+          : 'Error';
       toast({
-        title: 'Error',
-        description: 'Failed to generate image',
+        title,
+        description: String(errMessage),
         variant: 'destructive',
       });
     } finally {
@@ -340,22 +740,52 @@ export default function CreatePostView({
   }
 
   async function handlePost() {
-    if (!bundle || selectedAccountIds.length === 0) {
+    const values: CreatePostFormValues = {
+      profileId: selectedProfileId,
+      accounts: selectedAccountIds,
+      platform: targetPlatforms[0] as any,
+      contentType: contentType as any,
+      tone: tone as any,
+      topic,
+      mediaItems: uploadedMedia as any,
+      publishingOption: publishingOption as any,
+      scheduledDate,
+      scheduledTime,
+      timezone,
+      bundle: bundle,
+    };
+
+    form.reset(values);
+    const valid = await form.trigger();
+    if (!valid) {
+      const firstError = Object.values(form.formState.errors)[0];
       toast({
-        title: 'Error',
-        description: 'Please generate content and select accounts',
+        title: 'Validation',
+        description: String(firstError?.message || 'Please check the form'),
         variant: 'destructive',
       });
       return;
     }
 
-    if (publishingOption === 'schedule' && (!scheduledDate || !scheduledTime)) {
-      toast({
-        title: 'Error',
-        description: 'Please select a date and time for scheduling',
-        variant: 'destructive',
-      });
-      return;
+    // Validate media requirements per platform (skip for drafts)
+    if (publishingOption !== 'draft') {
+      const selectedPlatforms = selectedAccountIds
+        .map(id => accounts.find(a => a.id === id)?.platform?.toLowerCase())
+        .filter(Boolean) as string[];
+
+      for (const platform of selectedPlatforms) {
+        if (platform === 'instagram') {
+          const platformMediaItems = platformMedia[platform] || [];
+          if (platformMediaItems.length === 0) {
+            toast({
+              title: 'Instagram requires media',
+              description: `Please upload at least one image or video for Instagram (${platform}).`,
+              variant: 'destructive',
+            });
+            return;
+          }
+        }
+      }
     }
 
     setBusy(true);
@@ -370,31 +800,68 @@ export default function CreatePostView({
         scheduledFor = `${scheduledDate}T${scheduledTime}`;
       }
 
-      const result = await client.posts.createOrSchedulePost({
-        profileId: selectedProfileId,
-        platforms,
-        content: bundle,
-        mediaItems: uploadedMedia,
-        publishingOption: publishingOption as any,
-        scheduledFor,
-        timezone,
-      });
+      // Aggregate all media items (API expects a single array for now)
+      // TODO: Update API to support per-platform media
+      const allMediaItems = Object.values(platformMedia).flat();
 
-      if ((result as any).success) {
-        let message = 'Posts published successfully!';
+      // For drafts, use empty object if no content generated yet
+      const postContent = bundle || {};
+
+      let result;
+      if (editPostId) {
+        // Update existing post
+        result = await client.posts.update({
+          id: editPostId,
+          profileId: selectedProfileId,
+          platforms,
+          content: postContent,
+          mediaItems: allMediaItems.length > 0 ? allMediaItems : uploadedMedia,
+          publishingOption: publishingOption as any,
+          scheduledFor,
+          timezone,
+        });
+      } else {
+        // Create new post
+        result = await client.posts.createOrSchedulePost({
+          profileId: selectedProfileId,
+          platforms,
+          content: postContent,
+          mediaItems: allMediaItems.length > 0 ? allMediaItems : uploadedMedia,
+          publishingOption: publishingOption as any,
+          scheduledFor,
+          timezone,
+        });
+      }
+
+      if (result.success) {
+        let message = editPostId
+          ? 'Post updated successfully!'
+          : 'Posts published successfully!';
         if (publishingOption === 'schedule')
-          message = 'Posts scheduled successfully!';
+          message = editPostId
+            ? 'Post rescheduled successfully!'
+            : 'Posts scheduled successfully!';
         else if (publishingOption === 'draft')
-          message = 'Posts saved as draft!';
+          message = editPostId
+            ? 'Post saved as draft!'
+            : 'Posts saved as draft!';
         toast({ title: 'Success', description: message });
-        setBundle(null);
-        setTopic('');
-        setImageFile(null);
-        setUploadedMedia([]);
-        setGeneratedImageUrl(null);
-        setMediaPrompt('');
-        setScheduledDate('');
-        setScheduledTime('');
+
+        // Reset form only if creating new post
+        if (!editPostId) {
+          setBundle(null);
+          setTopic('');
+          setImageFile(null);
+          setUploadedMedia([]);
+          setPlatformMedia({});
+          setGeneratedImageUrl(null);
+          setMediaPrompt('');
+          setScheduledDate('');
+          setScheduledTime('');
+        } else {
+          // Redirect back to posts page after editing
+          window.location.href = '/dashboard/posts';
+        }
       } else {
         throw new Error('Failed to process posts');
       }
@@ -410,441 +877,137 @@ export default function CreatePostView({
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold">Create Post</h1>
-          <p className="text-muted-foreground">
-            Generate and publish content across your social media platforms
-          </p>
+    <div className="">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <div className="xl:col-span-2 space-y-6">
+          {/* Content Generation - Only show when no bundle exists */}
+          {!bundle && (
+            <ComposerSection
+              targetPlatforms={targetPlatforms}
+              setTargetPlatforms={setTargetPlatforms}
+              contentType={contentType}
+              setContentType={setContentType}
+              topic={topic}
+              setTopic={setTopic}
+              tone={tone}
+              setTone={setTone}
+              onGenerate={handleGenerate}
+              busy={busy}
+            />
+          )}
+
+          {/* Generated Content Preview with per-platform media upload */}
+          {bundle && (
+            <GeneratedPreview
+              bundle={bundle}
+              onEdit={handleEditGenerated}
+              platformMedia={platformMedia}
+              onPlatformMediaUpload={handlePlatformMediaUpload}
+              onUseSameMediaAsFirst={handleUseSameMediaAsFirst}
+              onRemovePlatformMedia={handleRemovePlatformMedia}
+              busy={busy}
+              uploading={uploading}
+            />
+          )}
         </div>
 
-        {/* Profile Selection + Connected Accounts (merged) */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Select Profile & Accounts</CardTitle>
-            <CardDescription>
-              Choose a profile and select accounts to post to
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="profile">Profile</Label>
-              <Select
-                value={selectedProfileId}
-                onValueChange={setSelectedProfileId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a profile" />
-                </SelectTrigger>
-                <SelectContent>
-                  {profiles.map(profile => (
-                    <SelectItem key={profile.id} value={profile.id}>
-                      {profile.name || profile.slug || profile.id}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="pt-2">
-              {!selectedProfileId ? (
-                <p className="text-muted-foreground h-[100px] flex items-center justify-center">
-                  Please select a profile to view connected accounts.
-                </p>
-              ) : accounts.length > 0 ? (
-                <div className="gap-2 grid grid-cols-1 md:grid-cols-2">
-                  {accounts.map(account => (
-                    <div
-                      key={account.id}
-                      className="flex items-center space-x-2"
-                    >
-                      <Checkbox
-                        id={account.id}
-                        checked={selected[account.id] || false}
-                        onCheckedChange={checked =>
-                          setSelected(prev => ({
-                            ...prev,
-                            [account.id]: !!checked,
-                          }))
-                        }
-                      />
-                      <Label htmlFor={account.id} className="text-sm">
-                        {account.platform.toUpperCase()} -{' '}
-                        {account.displayName || account.username || account.id}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              ) : (
+        <div className="xl:col-span-1 self-start">
+          <div className="sticky top-28 md:top-24 z-10 max-h-[calc(100dvh-6rem)] overflow-y-auto space-y-6">
+            {/* Profile Selection + Connected Accounts */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Select Profile & Accounts</CardTitle>
+                <CardDescription>
+                  Choose a profile and select accounts to post to
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <p className="text-muted-foreground h-[100px] flex items-center justify-center">
-                    No accounts connected. Please connect your accounts first.
-                  </p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Content Generation */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Generate Content</CardTitle>
-            <CardDescription>
-              Use AI to create platform-specific content with advanced options
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="platform">Target Platform</Label>
-                <Select
-                  value={targetPlatform}
-                  onValueChange={setTargetPlatform}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="instagram">📸 Instagram</SelectItem>
-                    <SelectItem value="facebook">👥 Facebook</SelectItem>
-                    <SelectItem value="linkedin">💼 LinkedIn</SelectItem>
-                    <SelectItem value="twitter">🐦 Twitter/X</SelectItem>
-                    <SelectItem value="tiktok">🎵 TikTok</SelectItem>
-                    <SelectItem value="threads">🧵 Threads</SelectItem>
-                    <SelectItem value="youtube">📺 YouTube</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="content-type">Content Type</Label>
-                <Select value={contentType} onValueChange={setContentType}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {contentTypes.map(type => (
-                      <SelectItem key={type.value} value={type.value}>
-                        <div className="flex flex-col">
-                          <span>{type.label}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {type.description}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="topic">Topic or Prompt</Label>
-              <Textarea
-                id="topic"
-                placeholder="What would you like to post about? Be specific for better results..."
-                value={topic}
-                onChange={e => setTopic(e.target.value)}
-                className="min-h-[100px]"
-              />
-            </div>
-
-            <div className="space-y-3">
-              <Label>Tone & Style</Label>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {toneOptions.map(option => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setTone(option.value)}
-                    className={`flex items-center space-x-2 p-3 rounded-lg border transition-all ${
-                      tone === option.value
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border hover:border-primary/50 hover:bg-muted/50'
-                    }`}
+                  <Label htmlFor="profile">Profile</Label>
+                  <Select
+                    value={selectedProfileId}
+                    onValueChange={setSelectedProfileId}
                   >
-                    <span className="text-lg">{option.emoji}</span>
-                    <span className="text-sm font-medium">{option.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <Button
-              onClick={handleGenerate}
-              disabled={busy || !topic.trim()}
-              className="w-full"
-              size="lg"
-            >
-              {busy ? 'Generating...' : '✨ Generate Content'}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Generated Content Preview */}
-        {bundle && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Generated Content</CardTitle>
-              <CardDescription>
-                Review your platform-specific content
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 border-0 pt-0">
-              {Object.entries(bundle).map(([platform, content]) => {
-                const isObject =
-                  typeof content === 'object' && content !== null;
-                const caption = isObject
-                  ? (content as any).caption
-                  : String(content ?? '');
-                const imageUrl = isObject ? (content as any).image : undefined;
-                return (
-                  <div key={platform} className="space-y-2">
-                    <Textarea
-                      value={caption}
-                      onChange={e =>
-                        handleEditGenerated(platform, e.target.value)
-                      }
-                      className="min-h-[120px]"
-                    />
-                    {!caption && !imageUrl && (
-                      <p className="text-sm">No preview available</p>
-                    )}
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Media Upload */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Media</CardTitle>
-            <CardDescription>
-              Upload or generate images and videos for your post
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="upload" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="upload">Upload Media</TabsTrigger>
-                <TabsTrigger value="generate">Generate Image</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="upload" className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="media-upload">Upload Image or Video</Label>
-                  <Input
-                    id="media-upload"
-                    type="file"
-                    accept="image/*,video/mp4,video/mov,video/avi,video/quicktime"
-                    onChange={handleImageUpload}
-                    disabled={busy}
-                  />
-                  {uploading && (
-                    <p className="text-xs text-muted-foreground">
-                      Uploading...
-                    </p>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    Supported: Images (JPEG, PNG, GIF, WebP) and Videos (MP4,
-                    MOV, AVI) for Instagram Reels, YouTube Shorts
-                  </p>
-                </div>
-                {imageFile && (
-                  <div className="p-3 bg-muted rounded">
-                    <p className="text-sm">Selected: {imageFile.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Type:{' '}
-                      {imageFile.type.startsWith('video/') ? 'Video' : 'Image'}{' '}
-                      | Size: {(imageFile.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="generate" className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="media-prompt">Image Description</Label>
-                  <Textarea
-                    id="media-prompt"
-                    placeholder="Describe the image you want to generate (e.g., 'A modern office workspace with plants and natural lighting')"
-                    value={mediaPrompt}
-                    onChange={e => setMediaPrompt(e.target.value)}
-                  />
-                </div>
-                <Button
-                  onClick={handleGenerateImage}
-                  disabled={busy || !mediaPrompt.trim()}
-                  className="w-full"
-                >
-                  {busy ? 'Generating...' : 'Generate Image with DALL-E'}
-                </Button>
-                {generatedImageUrl && (
-                  <div className="space-y-2">
-                    <Label>Generated Image Preview</Label>
-                    <div className="border rounded p-2">
-                      <img
-                        src={generatedImageUrl || '/placeholder.svg'}
-                        alt="Generated image"
-                        className="max-w-full h-auto rounded"
-                        style={{ maxHeight: '300px' }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-
-        {/* Publishing Options */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Publishing</CardTitle>
-            <CardDescription>Choose how to handle your content</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-4">
-              <Label className="text-base font-medium">
-                Publishing Options
-              </Label>
-              <RadioGroup
-                value={publishingOption}
-                onValueChange={setPublishingOption}
-                className="space-y-3"
-              >
-                <div className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
-                  <RadioGroupItem value="now" id="publish-now" />
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <Label
-                      htmlFor="publish-now"
-                      className="font-medium cursor-pointer"
-                    >
-                      Publish now
-                    </Label>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
-                  <RadioGroupItem value="schedule" id="schedule-later" />
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                    <Label
-                      htmlFor="schedule-later"
-                      className="font-medium cursor-pointer"
-                    >
-                      Schedule for later
-                    </Label>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
-                  <RadioGroupItem value="draft" id="save-draft" />
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                    <Label
-                      htmlFor="save-draft"
-                      className="font-medium cursor-pointer"
-                    >
-                      Save as draft
-                    </Label>
-                  </div>
-                </div>
-              </RadioGroup>
-            </div>
-
-            {publishingOption === 'schedule' && (
-              <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
-                <Label className="text-base font-medium">Schedule for</Label>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="scheduled-date">Date</Label>
-                    <Input
-                      id="scheduled-date"
-                      type="date"
-                      value={scheduledDate}
-                      onChange={e => setScheduledDate(e.target.value)}
-                      min={new Date().toISOString().split('T')[0]}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="scheduled-time">Time</Label>
-                    <Input
-                      id="scheduled-time"
-                      type="time"
-                      value={scheduledTime}
-                      onChange={e => setScheduledTime(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="timezone">Timezone</Label>
-                  <Select value={timezone} onValueChange={setTimezone}>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select a profile" />
                     </SelectTrigger>
                     <SelectContent>
-                      {timezones.map(tz => (
-                        <SelectItem key={tz.value} value={tz.value}>
-                          {tz.label}
+                      {profiles.map(profile => (
+                        <SelectItem key={profile.id} value={profile.id}>
+                          {profile.name || profile.slug || profile.id}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {scheduledDate && scheduledTime && (
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded text-sm">
-                    <p className="text-blue-800">
-                      <strong>Scheduled for:</strong>{' '}
-                      {new Date(
-                        `${scheduledDate}T${scheduledTime}`
-                      ).toLocaleDateString('en-US', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: 'numeric',
-                        minute: '2-digit',
-                        timeZone: timezone,
-                      })}{' '}
-                      ({timezones.find(tz => tz.value === timezone)?.label})
+                <div className="pt-2">
+                  {!selectedProfileId ? (
+                    <p className="text-muted-foreground h-[100px] flex items-center justify-center">
+                      Please select a profile to view connected accounts.
                     </p>
-                  </div>
-                )}
-              </div>
-            )}
+                  ) : accounts.length > 0 ? (
+                    <div className="gap-2 grid grid-cols-1 md:grid-cols-2">
+                      {accounts.map(account => (
+                        <div
+                          key={account.id}
+                          className="flex items-center space-x-2"
+                        >
+                          <Checkbox
+                            id={account.id}
+                            checked={selected[account.id] || false}
+                            onCheckedChange={checked =>
+                              setSelected(prev => ({
+                                ...prev,
+                                [account.id]: !!checked,
+                              }))
+                            }
+                          />
+                          <Label htmlFor={account.id} className="text-sm">
+                            {account.platform.toUpperCase()} -{' '}
+                            {account.displayName ||
+                              account.username ||
+                              account.id}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-muted-foreground h-[100px] flex items-center justify-center">
+                        No accounts connected. Please connect your accounts
+                        first.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
-            <Button
-              onClick={handlePost}
-              disabled={
-                busy ||
-                !bundle ||
-                selectedAccountIds.length === 0 ||
-                (publishingOption === 'schedule' &&
-                  (!scheduledDate || !scheduledTime))
+            {/* Publishing Options */}
+            <ScheduleSection
+              busy={busy}
+              publishingOption={publishingOption}
+              setPublishingOption={setPublishingOption}
+              scheduledDate={scheduledDate}
+              setScheduledDate={setScheduledDate}
+              scheduledTime={scheduledTime}
+              setScheduledTime={setScheduledTime}
+              timezone={timezone}
+              setTimezone={setTimezone}
+              onSubmit={handlePost}
+              canSubmit={
+                selectedAccountIds.length > 0 &&
+                // For drafts, bundle is optional
+                (publishingOption === 'draft' ||
+                  // For publish/schedule, require bundle
+                  (!!bundle &&
+                    (publishingOption !== 'schedule' ||
+                      (!!scheduledDate && !!scheduledTime))))
               }
-              className="w-full"
-              size="lg"
-            >
-              {busy
-                ? 'Processing...'
-                : publishingOption === 'now'
-                  ? 'Publish Now'
-                  : publishingOption === 'schedule'
-                    ? 'Schedule Post'
-                    : 'Save as Draft'}
-            </Button>
-          </CardContent>
-        </Card>
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

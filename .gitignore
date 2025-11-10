@@ -2,6 +2,16 @@
 
 # dependencies
 /node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# testing
+/coverage
+/test-results
+/playwright-report
+/playwright/.cache
+*.log
 
 # next.js
 /.next/
@@ -10,14 +20,22 @@
 # production
 /build
 
+# misc
+.DS_Store
+*.pem
+
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
 
-# env files
-.env*
+# local env files
+.env*.local
+.env.test
+.env.*         # ignore all other env variants like .env.production, .env.development
+.envrc
+!.env.example  # keep example files
+!.env*.example
 
 # vercel
 .vercel
@@ -25,3 +43,25 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# prisma
+prisma/migrations/dev.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+
+# Test artifacts
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+playwright/.cache/
+
+.env

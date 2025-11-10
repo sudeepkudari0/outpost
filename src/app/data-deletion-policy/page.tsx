@@ -1,6 +1,4 @@
-import React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 
 export default function DataDeletionPolicy() {
   return (
@@ -10,13 +8,10 @@ export default function DataDeletionPolicy() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center">
             <Link href="/" className="flex items-center">
-              <Image
-                src="/postit-logo.png"
-                alt="Social"
-                width={1000}
-                height={1000}
-                className="w-[140px] h-[60px]"
-              />
+              <div className="flex items-center font-bold text-3xl">
+                <span className="text-[#2F527E]">Out</span>
+                <span className="text-[#4DCDDB]">Post - AI</span>
+              </div>
             </Link>
           </div>
         </div>
@@ -37,8 +32,8 @@ export default function DataDeletionPolicy() {
 
                 <div className="mb-8">
                   <p className="text-gray-700 leading-relaxed">
-                    At social.thinkroman.com ("we," "us," or "our"), you can
-                    request deletion of your personal data at any time. This
+                    At outpost.sudeepkudari.online ("we," "us," or "our"), you
+                    can request deletion of your personal data at any time. This
                     page explains what we delete, how to request deletion, how
                     long it takes, and how we confirm it.
                   </p>
@@ -86,7 +81,7 @@ export default function DataDeletionPolicy() {
                       </h3>
                       <ol className="list-decimal pl-6 text-gray-700 space-y-2">
                         <li>
-                          Log in to your account on social.thinkroman.com.
+                          Log in to your account on outpost.sudeepkudari.online.
                         </li>
                         <li>
                           Go to Account → Privacy → Delete my data (or Settings
@@ -110,7 +105,9 @@ export default function DataDeletionPolicy() {
                       </p>
                       <ol className="list-decimal pl-6 text-gray-700 space-y-2">
                         <li>Open Facebook → Settings → Apps and Websites.</li>
-                        <li>Find social.thinkroman.com and choose Remove.</li>
+                        <li>
+                          Find outpost.sudeepkudari.online and choose Remove.
+                        </li>
                         <li>
                           Facebook will send us a deletion callback. We'll
                           delete your Facebook-linked data and return a
@@ -130,10 +127,10 @@ export default function DataDeletionPolicy() {
                       <p className="text-gray-700 mb-3">
                         Email{' '}
                         <a
-                          href="mailto:admin@thinkroman.com"
+                          href="mailto:sudeepkudari0@gmail.com"
                           className="text-blue-600 hover:text-blue-800 underline"
                         >
-                          admin@thinkroman.com
+                          sudeepkudari0@gmail.com
                         </a>{' '}
                         with subject "Data Deletion Request" and include:
                       </p>
@@ -251,10 +248,10 @@ export default function DataDeletionPolicy() {
                     by law. If you believe a child has used our services in
                     violation of our policies, contact{' '}
                     <a
-                      href="mailto:admin@thinkroman.com"
+                      href="mailto:sudeepkudari0@gmail.com"
                       className="text-blue-600 hover:text-blue-800 underline"
                     >
-                      admin@thinkroman.com
+                      sudeepkudari0@gmail.com
                     </a>{' '}
                     and we will take appropriate action, including deletion
                     where applicable.
@@ -269,10 +266,10 @@ export default function DataDeletionPolicy() {
                     <li>
                       Questions or requests about this policy:{' '}
                       <a
-                        href="mailto:admin@thinkroman.com"
+                        href="mailto:sudeepkudari0@gmail.com"
                         className="text-blue-600 hover:text-blue-800 underline"
                       >
-                        admin@thinkroman.com
+                        sudeepkudari0@gmail.com
                       </a>
                     </li>
                     <li>

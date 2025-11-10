@@ -1,4 +1,5 @@
 import NextAuth from 'next-auth';
+import { getToken } from 'next-auth/jwt';
 import { NextResponse } from 'next/server';
 import authConfig from './lib/auth/auth.config';
 
@@ -6,24 +7,39 @@ const { auth } = NextAuth(authConfig);
 
 export default auth(async req => {
   const { nextUrl } = req;
-  const isLoggedIn = !!req.auth;
+
+  const token = await getToken({
+    req,
+    secret: process.env.AUTH_SECRET,
+    cookieName:
+      process.env.NODE_ENV === 'production'
+        ? '__Secure-authjs.session-token'
+        : 'authjs.session-token',
+  });
+
+  const isLoggedIn = !!token;
 
   const isAuthRoute =
     nextUrl.pathname.startsWith('/login') ||
     nextUrl.pathname.startsWith('/auth') ||
-    nextUrl.pathname.startsWith('/set-password');
+    nextUrl.pathname.startsWith('/set-password') ||
+    nextUrl.pathname.startsWith('/signup');
 
   const isApiAuthRoute = nextUrl.pathname.startsWith('/api/auth');
   const isRootRoute = nextUrl.pathname === '/';
-  const isPublicRoute = isAuthRoute || isApiAuthRoute;
+  const isPublicRoute =
+    isAuthRoute ||
+    isApiAuthRoute ||
+    isRootRoute ||
+    nextUrl.pathname.startsWith('/invite/accept') ||
+    nextUrl.pathname.startsWith('/privacy-policy') ||
+    nextUrl.pathname.startsWith('/terms-of-use') ||
+    nextUrl.pathname.startsWith('/data-deletion-policy');
 
-  // Handle root route
-  if (isRootRoute) {
-    if (isLoggedIn) {
-      return NextResponse.redirect(new URL('/dashboard', nextUrl));
-    } else {
-      return NextResponse.redirect(new URL('/login', nextUrl));
-    }
+  // Root and public informational pages are accessible regardless of auth state
+
+  if (isLoggedIn && isAuthRoute) {
+    return NextResponse.redirect(new URL('/dashboard', nextUrl));
   }
 
   // Allow API auth routes and auth pages

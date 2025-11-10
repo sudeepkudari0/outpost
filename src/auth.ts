@@ -1,4 +1,4 @@
-import { getUserById } from '@/data/user';
+import { getAccountByUserId, getUserByEmail, getUserById } from '@/data/user';
 import { prisma } from '@/lib/db';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import NextAuth from 'next-auth';
@@ -17,7 +17,21 @@ export const {
   },
   callbacks: {
     async signIn({ user, account }) {
-      if (account?.provider === 'google') return true;
+      if (account?.provider === 'google') {
+        const email = user.email as string | null | undefined;
+        if (email) {
+          const existingByEmail = await getUserByEmail(email);
+          if (existingByEmail) {
+            const existingAccount = await getAccountByUserId(
+              existingByEmail.id as string
+            );
+            if (existingAccount && existingAccount.provider !== 'google') {
+              return '/signup?error=EMAIL_IN_USE_DIFFERENT_METHOD';
+            }
+          }
+        }
+        return true;
+      }
       if (account?.provider === 'otp') return true;
 
       if (account?.provider !== 'credentials') return true;

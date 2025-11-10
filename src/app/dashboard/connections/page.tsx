@@ -96,13 +96,13 @@ function initializePlatforms(): Platform[] {
 
 async function getInitialData() {
   try {
-    const profiles = await client.social.getProfiles();
+    const profiles = await client.social['get-profiles']();
     const selectedProfile = profiles[0]?.id ?? '';
 
     let platforms: Platform[] = initializePlatforms();
 
     if (selectedProfile) {
-      const accounts = await client.social.getConnectedAccounts({
+      const accounts = await client.social['get-connected-accounts']({
         profileId: selectedProfile,
       });
 
@@ -124,7 +124,7 @@ async function getInitialData() {
     return { profiles, selectedProfile, platforms };
   } catch (err) {
     // Gracefully handle unauthenticated or other server errors
-    console.log('error', err);
+    console.error('error', err);
     return {
       profiles: [],
       selectedProfile: '',

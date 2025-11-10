@@ -1,7 +1,10 @@
 import { auth } from '@/auth';
 import { prisma } from '@/lib/db';
+import { adminRouter } from './router/admin';
 import { authRouter } from './router/auth';
+import { invitesRouter } from './router/invites';
 import { postsRouter } from './router/posts';
+import { profileShareRouter } from './router/profile-share';
 import { socialRouter } from './router/social';
 
 /**
@@ -12,6 +15,9 @@ export const serverRouter = {
   auth: authRouter,
   social: socialRouter,
   posts: postsRouter,
+  invites: invitesRouter,
+  team: profileShareRouter,
+  admin: adminRouter,
 };
 
 /**

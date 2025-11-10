@@ -1,7 +1,7 @@
 import type { SubscriptionTier } from '@prisma/client';
+import { prisma } from './db';
 import { getTierLimits, getUserTier, hasFeature } from './subscription';
 import { getUserUsage } from './usage';
-
 export interface QuotaCheckResult {
   allowed: boolean;
   reason?: string;
@@ -74,20 +74,21 @@ export async function canConnectProfile(
   userId: string
 ): Promise<QuotaCheckResult> {
   try {
-    const [tier, usage] = await Promise.all([
-      getUserTier(userId),
-      getUserUsage(userId),
-    ]);
-
+    const tier = await getUserTier(userId);
     const limits = getTierLimits(tier);
+
+    // Always use actual profile count from DB for accuracy
+    const profileCount = await prisma.socialProfile.count({
+      where: { userId },
+    });
 
     // Check profile limit (unless unlimited)
     if (limits.maxProfiles !== -1) {
-      if (usage.profileCount >= limits.maxProfiles) {
+      if (profileCount >= limits.maxProfiles) {
         return {
           allowed: false,
           reason: `Profile limit reached (${limits.maxProfiles} profiles maximum)`,
-          current: usage.profileCount,
+          current: profileCount,
           limit: limits.maxProfiles,
           tier,
           upgradeRequired: tier === 'FREE',
@@ -97,7 +98,7 @@ export async function canConnectProfile(
 
     return {
       allowed: true,
-      current: usage.profileCount,
+      current: profileCount,
       limit: limits.maxProfiles,
       tier,
     };
@@ -125,7 +126,6 @@ export async function canConnectAccount(
     const limits = getTierLimits(tier);
 
     // Get current account count from database
-    const { prisma } = await import('./db');
     const accountCount = await prisma.connectedAccount.count({
       where: {
         profile: { userId },
@@ -207,14 +207,16 @@ export async function getRemainingQuota(userId: string) {
 
     const limits = getTierLimits(tier);
 
-    // Get current account count
-    const { prisma } = await import('./db');
-    const accountCount = await prisma.connectedAccount.count({
-      where: {
-        profile: { userId },
-        isActive: true,
-      },
-    });
+    // Get current counts from DB for accuracy
+    const [accountCount, profileCount] = await Promise.all([
+      prisma.connectedAccount.count({
+        where: {
+          profile: { userId },
+          isActive: true,
+        },
+      }),
+      prisma.socialProfile.count({ where: { userId } }),
+    ]);
 
     return {
       tier,
@@ -238,13 +240,32 @@ export async function getRemainingQuota(userId: string) {
           unlimited: limits.maxPostsPerMonth === -1,
         },
       },
+      ai: {
+        daily: {
+          used: usage.aiGenerationsToday || 0,
+          limit: limits.maxAiGenerationsPerDay,
+          remaining:
+            limits.maxAiGenerationsPerDay === -1
+              ? -1
+              : limits.maxAiGenerationsPerDay - (usage.aiGenerationsToday || 0),
+          unlimited: limits.maxAiGenerationsPerDay === -1,
+        },
+        monthly: {
+          used: usage.aiGenerationsThisMonth || 0,
+          limit: limits.maxAiGenerationsPerMonth,
+          remaining:
+            limits.maxAiGenerationsPerMonth === -1
+              ? -1
+              : limits.maxAiGenerationsPerMonth -
+                (usage.aiGenerationsThisMonth || 0),
+          unlimited: limits.maxAiGenerationsPerMonth === -1,
+        },
+      },
       profiles: {
-        used: usage.profileCount,
+        used: profileCount,
         limit: limits.maxProfiles,
         remaining:
-          limits.maxProfiles === -1
-            ? -1
-            : limits.maxProfiles - usage.profileCount,
+          limits.maxProfiles === -1 ? -1 : limits.maxProfiles - profileCount,
         unlimited: limits.maxProfiles === -1,
       },
       accounts: {
@@ -262,6 +283,97 @@ export async function getRemainingQuota(userId: string) {
     console.error('[Quota] Error getting remaining quota:', error);
     throw new Error('Failed to get remaining quota');
   }
+}
+
+/**
+ * Check if user can perform AI generation
+ * weight: number of units to consume (text=1, image=5 as specified)
+ */
+export async function canGenerateAI(
+  userId: string,
+  weight: number = 1
+): Promise<QuotaCheckResult> {
+  try {
+    const [tier, usage] = await Promise.all([
+      getUserTier(userId),
+      getUserUsage(userId),
+    ]);
+
+    const limits = getTierLimits(tier);
+
+    // Free tier: no AI generation
+    if (
+      limits.maxAiGenerationsPerDay === 0 ||
+      limits.maxAiGenerationsPerMonth === 0
+    ) {
+      return {
+        allowed: false,
+        reason: 'AI generation is not available on the Free plan',
+        current: 0,
+        limit: 0,
+        tier,
+        upgradeRequired: true,
+      };
+    }
+
+    const usedDaily = usage.aiGenerationsToday || 0;
+    const usedMonthly = usage.aiGenerationsThisMonth || 0;
+
+    if (limits.maxAiGenerationsPerDay !== -1) {
+      if (usedDaily + weight > limits.maxAiGenerationsPerDay) {
+        return {
+          allowed: false,
+          reason: `Daily AI limit reached (${limits.maxAiGenerationsPerDay} units per day)`,
+          current: usedDaily,
+          limit: limits.maxAiGenerationsPerDay,
+          tier,
+          upgradeRequired: tier === 'FREE',
+        };
+      }
+    }
+
+    if (limits.maxAiGenerationsPerMonth !== -1) {
+      if (usedMonthly + weight > limits.maxAiGenerationsPerMonth) {
+        return {
+          allowed: false,
+          reason: `Monthly AI limit reached (${limits.maxAiGenerationsPerMonth} units per month)`,
+          current: usedMonthly,
+          limit: limits.maxAiGenerationsPerMonth,
+          tier,
+          upgradeRequired: tier === 'FREE',
+        };
+      }
+    }
+
+    return {
+      allowed: true,
+      current: usedDaily,
+      limit: limits.maxAiGenerationsPerDay,
+      tier,
+    };
+  } catch (error) {
+    console.error('[Quota] Error checking AI quota:', error);
+    return {
+      allowed: true,
+      reason: 'Error checking quota',
+    };
+  }
+}
+
+export async function enforceAiQuota(userId: string, weight: number = 1) {
+  const result = await canGenerateAI(userId, weight);
+  if (!result.allowed) {
+    const error = new Error(result.reason || 'AI quota exceeded') as Error & {
+      statusCode?: number;
+      upgradeRequired?: boolean;
+      quota?: QuotaCheckResult;
+    };
+    error.statusCode = 429;
+    error.upgradeRequired = result.upgradeRequired;
+    error.quota = result;
+    throw error;
+  }
+  return result;
 }
 
 /**
@@ -364,6 +476,7 @@ export async function getQuotaStatus(userId: string) {
 
     const calculatePercentage = (used: number, limit: number) => {
       if (limit === -1) return 0; // Unlimited
+      if (limit <= 0) return 0; // Avoid NaN/Infinity when there is no quota
       return Math.min(Math.round((used / limit) * 100), 100);
     };
 
@@ -397,6 +510,44 @@ export async function getQuotaStatus(userId: string) {
             calculatePercentage(
               quota.posts.monthly.used,
               quota.posts.monthly.limit
+            )
+          ),
+        },
+      },
+      ai: {
+        daily: {
+          ...(quota.ai?.daily || {
+            used: 0,
+            limit: 0,
+            remaining: 0,
+            unlimited: false,
+          }),
+          percentage: calculatePercentage(
+            quota.ai?.daily?.used || 0,
+            quota.ai?.daily?.limit || 0
+          ),
+          status: getStatus(
+            calculatePercentage(
+              quota.ai?.daily?.used || 0,
+              quota.ai?.daily?.limit || 0
+            )
+          ),
+        },
+        monthly: {
+          ...(quota.ai?.monthly || {
+            used: 0,
+            limit: 0,
+            remaining: 0,
+            unlimited: false,
+          }),
+          percentage: calculatePercentage(
+            quota.ai?.monthly?.used || 0,
+            quota.ai?.monthly?.limit || 0
+          ),
+          status: getStatus(
+            calculatePercentage(
+              quota.ai?.monthly?.used || 0,
+              quota.ai?.monthly?.limit || 0
             )
           ),
         },
