@@ -1,12 +1,10 @@
 import { auth } from '@/auth';
 import { ComparisonSection } from '@/components/landing-page/comparison-section';
-import { DemoSection } from '@/components/landing-page/demo-section';
 import { FeaturesSection } from '@/components/landing-page/features-section';
 import { FinalCTABanner } from '@/components/landing-page/final-cta-banner';
 import { HeroSection } from '@/components/landing-page/hero-section';
 import { HowItWorksSection } from '@/components/landing-page/how-it-works-section';
 import { PricingSection } from '@/components/landing-page/pricing-section';
-import { TestimonialsSection } from '@/components/landing-page/testimonials-section';
 import { Footer } from '@/components/layout/footer';
 import { LandingPageHeader } from '@/components/layout/header';
 import { User } from 'next-auth';
@@ -20,9 +18,9 @@ export default async function HomePage() {
       <FeaturesSection />
       <HowItWorksSection />
       <ComparisonSection />
-      <DemoSection />
+      {/* <DemoSection /> */}
       <PricingSection />
-      <TestimonialsSection />
+      {/* <TestimonialsSection /> */}
       <FinalCTABanner />
       <Footer />
     </main>

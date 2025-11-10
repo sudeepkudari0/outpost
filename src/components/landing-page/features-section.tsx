@@ -31,7 +31,7 @@ const features = [
 
 export function FeaturesSection() {
   return (
-    <section className="py-20 sm:py-32 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+    <section className="py-10 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/3 right-0 w-96 h-96 bg-accent/10 rounded-full blur-3xl"></div>
       </div>

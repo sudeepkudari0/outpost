@@ -8,7 +8,15 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { BarChart3, Calendar, Clock, FileText, Users } from 'lucide-react';
+import {
+  Activity,
+  Calendar,
+  Clock,
+  Crown,
+  FileText,
+  LinkIcon,
+  Users,
+} from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -48,34 +56,66 @@ function formatDateTime(dateStr?: string | null): string {
 export default function DashboardClient({
   posts,
   accounts,
+  quota,
 }: {
   posts: PostItem[];
   accounts: AccountItem[];
+  quota?: any;
 }) {
-  function StatCard({
+  function MetricCard({
     title,
-    icon,
     value,
+    icon: Icon,
+    color,
+    trend,
     subtitle,
   }: {
     title: string;
-    icon: ReactNode;
-    value: ReactNode;
+    value: number | string | ReactNode;
+    icon: any;
+    color: 'blue' | 'green' | 'purple' | 'indigo' | 'cyan' | 'emerald';
+    trend?: string;
     subtitle?: ReactNode;
   }) {
+    const colorClasses: Record<string, string> = {
+      blue: 'from-blue-500 to-blue-600',
+      green: 'from-green-500 to-green-600',
+      purple: 'from-purple-500 to-purple-600',
+      indigo: 'from-indigo-500 to-indigo-600',
+      cyan: 'from-cyan-500 to-cyan-600',
+      emerald: 'from-emerald-500 to-emerald-600',
+    };
+
     return (
-      <Card className="rounded-2xl">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">{title}</CardTitle>
-          {icon}
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{value}</div>
+      <div className="border-slate-200 rounded-lg p-3 border dark:border-slate-800 hover:shadow-md transition-shadow">
+        <div className="flex items-center justify-between mb-2">
+          <div
+            className={`w-8 h-8 bg-gradient-to-br ${colorClasses[color]} rounded-md flex items-center justify-center shadow-sm`}
+          >
+            <Icon className="w-4 h-4 text-white" />
+          </div>
+          {trend && (
+            <span className="text-[10px] font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded">
+              {trend}
+            </span>
+          )}
+        </div>
+        <div className="space-y-0.5">
+          <p className="text-[10px] font-medium text-slate-500 dark:text-slate-500 uppercase tracking-wide">
+            {title}
+          </p>
+          <p className="text-xl font-bold text-slate-900 dark:text-slate-100">
+            {typeof value === 'number'
+              ? (value as number).toLocaleString()
+              : value}
+          </p>
           {subtitle ? (
-            <p className="text-xs text-muted-foreground">{subtitle}</p>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400">
+              {subtitle}
+            </p>
           ) : null}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
@@ -115,37 +155,72 @@ export default function DashboardClient({
     })
     .slice(0, 3);
 
+  const postsMonthlyUsed = quota?.posts?.monthly?.used as number | undefined;
+  const postsMonthlyLimit = quota?.posts?.monthly?.limit as number | undefined;
+  const tier = quota?.tier as string | undefined;
+  const postsDailyUsed = quota?.posts?.daily?.used as number | undefined;
+  const postsDailyLimit = quota?.posts?.daily?.limit as number | undefined;
+
   return (
     <div className="pr-2 space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Posts"
-          icon={<FileText className="h-4 w-4 text-muted-foreground" />}
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-2 lg:gap-3">
+        <MetricCard
+          title="Posts"
           value={totalPosts}
-          subtitle={'from Meta'}
+          icon={FileText}
+          color="purple"
         />
-
-        <StatCard
+        <MetricCard
           title="Scheduled"
-          icon={<Clock className="h-4 w-4 text-muted-foreground" />}
           value={scheduledCount}
+          icon={Clock}
+          color="blue"
           subtitle={`Next: ${formatDateTime(nextScheduled)}`}
         />
-
-        <StatCard
-          title="Connected Accounts"
-          icon={<Users className="h-4 w-4 text-muted-foreground" />}
+        <MetricCard
+          title="Connected"
           value={connectedAccounts}
+          icon={LinkIcon}
+          color="cyan"
           subtitle={`Across ${uniquePlatforms.size} platform${
             uniquePlatforms.size === 1 ? '' : 's'
           }`}
         />
-
-        <StatCard
-          title="Engagement"
-          icon={<BarChart3 className="h-4 w-4 text-muted-foreground" />}
-          value={'—'}
-          subtitle={'Coming soon'}
+        <MetricCard
+          title="Posts (30d)"
+          value={
+            typeof postsMonthlyUsed === 'number' &&
+            typeof postsMonthlyLimit === 'number'
+              ? `${postsMonthlyUsed}/${postsMonthlyLimit === -1 ? '∞' : postsMonthlyLimit}`
+              : '—'
+          }
+          icon={FileText}
+          color="emerald"
+          subtitle={tier ? `Tier: ${tier}` : undefined}
+        />
+        <MetricCard
+          title="Current Plan"
+          value={tier || 'FREE'}
+          icon={Crown}
+          color="indigo"
+          subtitle={
+            typeof postsMonthlyLimit === 'number'
+              ? `Monthly posts: ${postsMonthlyLimit === -1 ? '∞' : postsMonthlyLimit}`
+              : undefined
+          }
+        />
+        <MetricCard
+          title="Posts (Today)"
+          value={
+            typeof postsDailyUsed === 'number' &&
+            typeof postsDailyLimit === 'number'
+              ? `${postsDailyUsed}/${postsDailyLimit === -1 ? '∞' : postsDailyLimit}`
+              : typeof postsDailyUsed === 'number'
+                ? postsDailyUsed
+                : '—'
+          }
+          icon={Activity}
+          color="green"
         />
       </div>
 

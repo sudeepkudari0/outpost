@@ -3,6 +3,7 @@
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ArrowRight, Play } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 
 export function HeroSection() {
@@ -21,14 +22,6 @@ export function HeroSection() {
       </div>
 
       <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <div className="mb-6 inline-block">
-          <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-2xl px-4 py-2">
-            <p className="text-xs sm:text-sm font-medium text-blue-600">
-              AI-Powered Social Media Automation
-            </p>
-          </div>
-        </div>
-
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6 leading-tight">
           <span className="text-blue-600">Schedule weeks of content</span>
           <br />
@@ -61,20 +54,13 @@ export function HeroSection() {
         </div>
 
         <div className="mt-16 relative">
-          <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-2xl p-1">
-            <div className="bg-gradient-to-b from-primary/20 to-secondary/10 rounded-xl p-8 sm:p-12 min-h-96 flex items-center justify-center">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-primary/30 rounded-full mx-auto mb-4 flex items-center justify-center">
-                  <div className="w-8 h-8 bg-primary/50 rounded-full animate-pulse"></div>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Dashboard Preview
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="absolute -top-4 -right-4 w-24 h-24 bg-accent/20 rounded-full blur-2xl"></div>
-          <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-primary/10 rounded-full blur-3xl"></div>
+          <Image
+            src="/images/dashboard.png"
+            alt="Hero Section"
+            className="rounded-2xl"
+            width={1000}
+            height={1000}
+          />
         </div>
       </div>
     </section>

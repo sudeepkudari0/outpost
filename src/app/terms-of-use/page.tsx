@@ -1,4 +1,3 @@
-import Image from 'next/image';
 import Link from 'next/link';
 
 export default function TermsOfUse() {
@@ -9,13 +8,10 @@ export default function TermsOfUse() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center">
             <Link href="/" className="flex items-center">
-              <Image
-                src="/images/postit-logo.png"
-                alt="Social"
-                width={1000}
-                height={1000}
-                className="w-[140px] h-[60px]"
-              />
+              <div className="flex items-center font-bold text-3xl">
+                <span className="text-[#2F527E]">Out</span>
+                <span className="text-[#4DCDDB]">Post - AI</span>
+              </div>
             </Link>
           </div>
         </div>
@@ -36,8 +32,8 @@ export default function TermsOfUse() {
 
                 <div className="mb-8">
                   <p className="text-gray-700 leading-relaxed">
-                    Welcome to social.thinkroman.com, a service operated by
-                    ThinkRoman Ventures LLC ("we," "us," "our").
+                    Welcome to outpost.sudeepkudari.online, a service operated
+                    by Sudeep Kudari ("we," "us," "our").
                   </p>
                   <p className="text-gray-700 leading-relaxed mt-4">
                     By accessing or using this website, you agree to be bound by
@@ -52,7 +48,7 @@ export default function TermsOfUse() {
                   </h2>
                   <p className="text-gray-700 mb-4">
                     These Terms govern your access to and use of the
-                    social.thinkroman.com platform, including all content,
+                    outpost.sudeepkudari.online platform, including all content,
                     features, and services (collectively, the "Service").
                   </p>
                   <p className="text-gray-700">
@@ -105,10 +101,10 @@ export default function TermsOfUse() {
                     <li>
                       If you suspect unauthorized access, contact{' '}
                       <a
-                        href="mailto:admin@thinkroman.com"
+                        href="mailto:sudeepkudari0@gmail.com"
                         className="text-blue-600 hover:text-blue-800 underline"
                       >
-                        admin@thinkroman.com
+                        sudeepkudari0@gmail.com
                       </a>{' '}
                       immediately.
                     </li>
@@ -194,10 +190,10 @@ export default function TermsOfUse() {
                     6. Intellectual Property
                   </h2>
                   <p className="text-gray-700 mb-4">
-                    All content and materials on social.thinkroman.com —
+                    All content and materials on outpost.sudeepkudari.online —
                     including logos, trademarks, designs, text, graphics, and
-                    code — are owned by or licensed to ThinkRoman Ventures LLC
-                    and protected by intellectual property laws.
+                    code — are owned by or licensed to Sudeep Kudari and
+                    protected by intellectual property laws.
                   </p>
                   <p className="text-gray-700">
                     You may not copy, modify, distribute, sell, or exploit any
@@ -256,8 +252,8 @@ export default function TermsOfUse() {
                     9. Limitation of Liability
                   </h2>
                   <p className="text-gray-700 mb-4">
-                    To the fullest extent permitted by law, ThinkRoman Ventures
-                    LLC, its affiliates, and partners will not be liable for any
+                    To the fullest extent permitted by law, Sudeep Kudari LLC,
+                    its affiliates, and partners will not be liable for any
                     indirect, incidental, consequential, or punitive damages
                     arising out of:
                   </p>
@@ -277,9 +273,9 @@ export default function TermsOfUse() {
                     10. Indemnification
                   </h2>
                   <p className="text-gray-700 mb-4">
-                    You agree to indemnify and hold harmless ThinkRoman Ventures
-                    LLC, its affiliates, and personnel from any claims, damages,
-                    or expenses arising from:
+                    You agree to indemnify and hold harmless Sudeep Kudari LLC,
+                    its affiliates, and personnel from any claims, damages, or
+                    expenses arising from:
                   </p>
                   <ul className="list-disc pl-6 text-gray-700 space-y-2">
                     <li>Your use of the Service</li>
@@ -336,14 +332,15 @@ export default function TermsOfUse() {
                     13. Governing Law and Dispute Resolution
                   </h2>
                   <p className="text-gray-700 mb-4">
-                    These Terms are governed by the laws of the State of Texas,
-                    United States, without regard to conflict of law principles.
+                    These Terms are governed by the laws of the State of
+                    Karnataka, United States, without regard to conflict of law
+                    principles.
                   </p>
                   <p className="text-gray-700">
                     Any dispute or claim arising out of or relating to the
                     Service shall be resolved exclusively in the state or
-                    federal courts located in Dallas County, Texas, and you
-                    consent to that jurisdiction.
+                    federal courts located in Karnataka, and you consent to that
+                    jurisdiction.
                   </p>
                 </section>
 
@@ -373,13 +370,12 @@ export default function TermsOfUse() {
                     <li>
                       Email:{' '}
                       <a
-                        href="mailto:admin@thinkroman.com"
+                        href="mailto:sudeepkudari0@gmail.com"
                         className="text-blue-600 hover:text-blue-800 underline"
                       >
-                        admin@thinkroman.com
+                        sudeepkudari0@gmail.com
                       </a>
                     </li>
-                    <li>Address: ThinkRoman Ventures LLC, Texas, USA</li>
                   </ul>
                 </section>
               </div>

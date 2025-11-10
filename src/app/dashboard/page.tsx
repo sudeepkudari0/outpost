@@ -44,5 +44,19 @@ export default async function DashboardPage() {
     connectedAt: (a.connectedAt as Date).toString(),
   }));
 
-  return <DashboardClient posts={posts as any} accounts={normalizedAccounts} />;
+  // Fetch quota status for richer, real stats (tier, usage limits)
+  let quota: any | undefined;
+  try {
+    quota = await client.quota.status({});
+  } catch {
+    quota = undefined;
+  }
+
+  return (
+    <DashboardClient
+      posts={posts as any}
+      accounts={normalizedAccounts}
+      quota={quota as any}
+    />
+  );
 }

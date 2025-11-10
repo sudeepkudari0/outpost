@@ -1,7 +1,5 @@
 'use client';
 
-import { Github, Linkedin, Twitter } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 
 export function Footer() {
@@ -12,13 +10,10 @@ export function Footer() {
           <div>
             <div className="flex items-center">
               <Link href="/" className="flex items-center">
-                <Image
-                  src="/images/postit-logo.png"
-                  alt="Social"
-                  width={1000}
-                  height={1000}
-                  className="w-[140px] h-[60px]"
-                />
+                <div className="flex items-center font-bold text-3xl">
+                  <span className="text-[#2F527E]">Out</span>
+                  <span className="text-[#4DCDDB]">Post - AI</span>
+                </div>
               </Link>
             </div>
             <p className="text-muted-foreground text-sm">
@@ -35,9 +30,12 @@ export function Footer() {
                 </a>
               </li>
               <li>
-                <a href="#" className="hover:text-foreground transition-colors">
+                <Link
+                  href="/#pricing"
+                  className="hover:text-foreground transition-colors"
+                >
                   Pricing
-                </a>
+                </Link>
               </li>
               <li>
                 <a href="#" className="hover:text-foreground transition-colors">
@@ -96,33 +94,6 @@ export function Footer() {
                 </Link>
               </li>
             </ul>
-          </div>
-        </div>
-
-        <div className="border-t border-white/10 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-muted-foreground">
-            © 2025 ThinkRoman Ventures LLC. All rights reserved.
-          </p>
-
-          <div className="flex gap-4">
-            <a
-              href="#"
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Twitter className="w-5 h-5" />
-            </a>
-            <a
-              href="#"
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Github className="w-5 h-5" />
-            </a>
-            <a
-              href="#"
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Linkedin className="w-5 h-5" />
-            </a>
           </div>
         </div>
       </div>

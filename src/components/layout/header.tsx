@@ -3,7 +3,6 @@
 import { ThemeToggle } from '@/components/theme-toggle';
 import { cn } from '@/lib/utils';
 import { User } from 'next-auth';
-import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { buttonVariants } from '../ui/button';
@@ -15,13 +14,10 @@ export function LandingPageHeader({ user }: { user: User | null }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <div className="flex items-center">
           <Link href="/" className="flex items-center">
-            <Image
-              src="/images/postit-logo.png"
-              alt="Social"
-              width={1000}
-              height={1000}
-              className="w-[140px] h-[60px]"
-            />
+            <div className="flex items-center font-bold text-3xl">
+              <span className="text-[#2F527E]">Out</span>
+              <span className="text-[#4DCDDB]">Post - AI</span>
+            </div>
           </Link>
         </div>
 

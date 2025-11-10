@@ -7,42 +7,53 @@ const plans = [
   {
     name: 'Free',
     price: '$0',
-    description: 'Perfect for getting started',
+    description: 'For individuals getting started',
     features: [
-      '1 brand account',
-      '5 posts per month',
-      'Bring your own AI key',
-      'Basic scheduling',
-      'Community support',
+      'Up to 2 profiles',
+      '10 posts/day, 300 posts/month',
+      'Connect Facebook, Instagram, LinkedIn, X, Threads',
+      'Basic posting & scheduling',
     ],
     highlighted: false,
   },
   {
-    name: 'Creator',
-    price: '$9',
-    description: 'For growing creators',
+    name: 'Pro',
+    price: '$10',
+    description: 'For growing teams and creators',
     features: [
-      '3 brand accounts',
-      '100 posts per month',
-      'Bring your own AI key',
-      'Advanced scheduling',
-      'Priority support',
-      'Analytics dashboard',
+      'Up to 10 profiles',
+      '100 posts/day, 3000 posts/month',
+      'AI generations: 5/day, 150/month',
+      'Bulk upload & advanced scheduling',
+      'Analytics (basic) & priority support',
+      'Connect all supported platforms',
     ],
     highlighted: true,
   },
   {
-    name: 'Agency',
-    price: '$29',
-    description: 'For agencies & teams',
+    name: 'Business',
+    price: '$20',
+    description: 'For agencies and larger teams',
     features: [
-      'Unlimited brands',
-      'Unlimited posts',
-      'Bring your own AI key',
-      'Team collaboration',
-      '24/7 support',
-      'Advanced analytics',
-      'Custom integrations',
+      'Up to 50 profiles',
+      '500 posts/day, 15000 posts/month',
+      'AI generations: 15/day, 450/month',
+      'Team collaboration & white labeling',
+      'Advanced analytics & custom branding',
+      'Connect all supported platforms',
+    ],
+    highlighted: false,
+  },
+  {
+    name: 'Enterprise',
+    price: 'Custom',
+    description: 'For organizations with advanced needs',
+    features: [
+      'Unlimited profiles, posts, and accounts',
+      'Unlimited AI generations',
+      'Dedicated support & SLA guarantee',
+      'Custom integrations & advanced security',
+      'Audit logs and enterprise features',
     ],
     highlighted: false,
   },
@@ -50,7 +61,10 @@ const plans = [
 
 export function PricingSection() {
   return (
-    <section className="py-20 sm:py-32 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+    <section
+      id="pricing"
+      className="py-20 sm:py-32 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
+    >
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl"></div>
         <div className="absolute bottom-1/4 right-0 w-96 h-96 bg-accent/10 rounded-full blur-3xl"></div>
@@ -66,7 +80,7 @@ export function PricingSection() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-8">
           {plans.map((plan, index) => (
             <div
               key={index}
@@ -88,7 +102,9 @@ export function PricingSection() {
                   <span className="text-5xl font-bold text-blue-600">
                     {plan.price}
                   </span>
-                  <span className="text-muted-foreground ml-2">/month</span>
+                  {plan.price.startsWith('$') ? (
+                    <span className="text-muted-foreground ml-2">/month</span>
+                  ) : null}
                 </div>
 
                 <Button
@@ -98,7 +114,11 @@ export function PricingSection() {
                       : 'border border-white/20 hover:bg-white/10 text-foreground'
                   }`}
                 >
-                  Get Started
+                  {plan.name === 'Enterprise'
+                    ? 'Contact Sales'
+                    : plan.name === 'Free'
+                      ? 'Get Started'
+                      : 'Upgrade'}
                 </Button>
 
                 <div className="space-y-4">
