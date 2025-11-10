@@ -32,6 +32,10 @@ yarn-error.log*
 # local env files
 .env*.local
 .env.test
+.env.*         # ignore all other env variants like .env.production, .env.development
+.envrc
+!.env.example  # keep example files
+!.env*.example
 
 # vercel
 .vercel
@@ -59,3 +63,5 @@ coverage/
 test-results/
 playwright-report/
 playwright/.cache/
+
+.env
