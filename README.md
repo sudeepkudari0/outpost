@@ -1,4 +1,4 @@
-# Social Media Composer + Scheduler
+# OutPost AI
 
 An AI-powered social media management application that generates platform-specific content using OpenAI and publishes/schedules posts across multiple social media platforms using the Late API.
 
