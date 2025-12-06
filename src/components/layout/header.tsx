@@ -10,13 +10,12 @@ import { UserNav } from '../user-nav';
 
 export function LandingPageHeader({ user }: { user: User | null }) {
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-md">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-[#1a1a1a] border-b-4 border-[#ff6b35]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <div className="flex items-center">
           <Link href="/" className="flex items-center">
-            <div className="flex items-center font-bold text-3xl">
-              <span className="text-[#2F527E]">Out</span>
-              <span className="text-[#4DCDDB]">Post - AI</span>
+            <div className="font-black text-2xl text-white font-mono">
+              OUTPOST
             </div>
           </Link>
         </div>
@@ -26,16 +25,16 @@ export function LandingPageHeader({ user }: { user: User | null }) {
           {user ? (
             <Link
               href="/dashboard"
-              className={cn(buttonVariants({ variant: 'default' }))}
+              className="bg-[#ff6b35] text-white px-6 py-2 font-mono hover:bg-[#4ecdc4] transition-colors transform rotate-[-1deg] hover:rotate-[1deg] hover:scale-105"
             >
               Dashboard
             </Link>
           ) : (
             <Link
               href="/login"
-              className={cn(buttonVariants({ variant: 'default' }))}
+              className="bg-[#ff6b35] text-white px-6 py-2 font-mono hover:bg-[#4ecdc4] transition-colors transform rotate-[-1deg] hover:rotate-[1deg] hover:scale-105"
             >
-              Login
+              Try Free →
             </Link>
           )}
         </div>

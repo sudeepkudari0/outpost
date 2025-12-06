@@ -1,67 +1,73 @@
 'use client';
 
-import { Button, buttonVariants } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { ArrowRight, Play } from 'lucide-react';
-import Image from 'next/image';
+import { Button } from '@/components/ui/button';
+import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
 export function HeroSection() {
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20 pb-20">
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-primary/20 rounded-full blur-3xl animate-pulse"></div>
-        <div
-          className="absolute bottom-20 right-10 w-96 h-96 bg-accent/15 rounded-full blur-3xl animate-pulse"
-          style={{ animationDelay: '1s' }}
-        ></div>
-        <div
-          className="absolute top-1/2 left-1/2 w-80 h-80 bg-secondary/10 rounded-full blur-3xl animate-pulse"
-          style={{ animationDelay: '2s' }}
-        ></div>
+    <section className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto relative">
+      {/* Hero Badge */}
+      <div className="inline-block mb-6 bg-[#ffe66d] dark:bg-yellow-500  px-4 py-2 border-2 border-[#1a1a1a] font-mono text-sm rotate-[-2deg] transform">
+        BUILT BY ONE DEVELOPER IN 3 MONTHS
       </div>
 
-      <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6 leading-tight">
-          <span className="text-blue-600">Schedule weeks of content</span>
-          <br />
-          <span className="text-foreground">in minutes, not hours.</span>
-        </h1>
+      {/* Headline */}
+      <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-tight mb-6">
+        Because{' '}
+        <span className="inline-block bg-[#ff6b35] text-white px-3 rotate-[-1deg] transform">
+          $99/month
+        </span>
+        <br />
+        for scheduling is insane
+      </h1>
 
-        <p className="text-sm sm:text-base lg:text-lg text-muted-foreground mb-8 max-w-2xl mx-auto leading-relaxed">
-          Connect your social accounts, bring your own AI key, and let PostPilot
-          handle the planning, writing, and scheduling. Manage multiple brands
-          from one dashboard.
-        </p>
+      {/* Subtitle */}
+      <div className="bg-white dark:bg-gray-900 p-4 border-l-4 border-[#4ecdc4] max-w-2xl mb-8 text-lg">
+        💡 I got tired of paying for Buffer Pro. So I built this. Now 200+
+        creators use it daily to schedule posts across 6 platforms with
+        AI-powered content generation.
+      </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-          <Link
-            href="/login"
-            className={cn(
-              buttonVariants({ size: 'lg', variant: 'default' }),
-              'bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-8'
-            )}
+      {/* Meta Stats */}
+      <div className="flex flex-wrap gap-4 mb-8">
+        <div className="bg-white dark:bg-gray-900 px-5 py-3 border-[3px] border-[#1a1a1a] font-mono text-sm">
+          <strong className="block text-[#ff6b35] text-xl">$10/mo</strong>
+          vs $99 for Hootsuite
+        </div>
+        <div className="bg-white dark:bg-gray-900 px-5 py-3 border-[3px] border-[#1a1a1a] font-mono text-sm">
+          <strong className="block text-[#ff6b35] text-xl">Your AI Key</strong>
+          OpenAI, Claude, Gemini
+        </div>
+        <div className="bg-white dark:bg-gray-900 px-5 py-3 border-[3px] border-[#1a1a1a] font-mono text-sm">
+          <strong className="block text-[#ff6b35] text-xl">6 Platforms</strong>
+          Instagram, X, LinkedIn...
+        </div>
+        <div className="bg-white dark:bg-gray-900 px-5 py-3 border-[3px] border-[#1a1a1a] font-mono text-sm">
+          <strong className="block text-[#ff6b35] text-xl">Sub-200ms</strong>
+          API response time
+        </div>
+      </div>
+
+      {/* CTA Section */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <Link href="/login">
+          <Button
+            size="lg"
+            className="bg-[#1a1a1a] text-white border-[3px] border-[#1a1a1a] hover:bg-white hover:text-[#1a1a1a] font-mono text-lg px-8 py-6 transition-all"
           >
-            Start Free <ArrowRight className="ml-2 w-4 h-4" />
-          </Link>
+            Start Free (No CC Required)
+          </Button>
+        </Link>
+        <Link href="#how-it-works">
           <Button
             size="lg"
             variant="outline"
-            className="border-white/20 hover:bg-white/10 rounded-full px-8 bg-transparent"
+            className="bg-white dark:bg-gray-900 text-[#1a1a1a] dark:text-white border-[3px] border-[#1a1a1a] font-mono text-lg px-8 py-6"
           >
-            <Play className="w-4 h-4 mr-2" /> Watch Demo
+            Read Build Story <ArrowRight className="ml-2 w-5 h-5" />
           </Button>
-        </div>
-
-        <div className="mt-16 relative">
-          <Image
-            src="/images/dashboard.png"
-            alt="Hero Section"
-            className="rounded-2xl"
-            width={1000}
-            height={1000}
-          />
-        </div>
+        </Link>
       </div>
     </section>
   );

@@ -59,7 +59,7 @@ export default function DataDeletionPolicy() {
                       items tied to your account)
                     </li>
                   </ul>
-                  <div className="mt-4 p-4 bg-yellow-50 border-l-4 border-yellow-400">
+                  <div className="mt-4 p-4 bg-yellow-50 border-l-4 border-yellow-500">
                     <p className="text-sm text-yellow-800">
                       <strong>Note:</strong> Certain minimal records may be
                       retained where required by law, to prevent fraud/abuse, or

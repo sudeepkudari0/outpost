@@ -1,85 +1,115 @@
 'use client';
 
-import { BarChart3, Brain, Lock, Smartphone, Users, Zap } from 'lucide-react';
-
-const benefits = [
+const competitors = [
   {
-    icon: Brain,
-    title: 'AI-Powered Content',
-    description:
-      'Generate engaging captions and content ideas instantly with advanced AI, or bring your own API key for complete control.',
+    name: 'Hootsuite',
+    price: '$99/mo',
+    cons: [
+      'Slow UI',
+      'Limited AI',
+      'Teams add-on costs extra',
+      'Locked-in AI credits',
+    ],
   },
   {
-    icon: Zap,
-    title: 'Lightning Fast Scheduling',
-    description:
-      'Schedule posts across all platforms in seconds. Optimize posting times with intelligent analytics.',
+    name: 'Buffer',
+    price: '$60/mo',
+    cons: [
+      'No advanced analytics',
+      'Basic AI features',
+      '10 profiles max',
+      'Mobile app is meh',
+    ],
   },
   {
-    icon: Users,
-    title: 'Team Collaboration',
-    description:
-      'Work seamlessly with your team. Assign tasks, approve content, and manage workflows in one place.',
-  },
-  {
-    icon: BarChart3,
-    title: 'Deep Analytics',
-    description:
-      'Track performance across platforms with comprehensive dashboards. Understand what resonates with your audience.',
-  },
-  {
-    icon: Lock,
-    title: 'Enterprise Security',
-    description:
-      'Bank-level encryption and compliance standards. Your data is always protected and secure.',
-  },
-  {
-    icon: Smartphone,
-    title: 'Multi-Platform Support',
-    description:
-      'Manage Instagram, TikTok, LinkedIn, Twitter, and more from a single dashboard.',
+    name: 'SocialBee',
+    price: '$79/mo',
+    cons: [
+      'Confusing UX',
+      'Limited platforms',
+      'Slow customer support',
+      'No bulk upload',
+    ],
   },
 ];
 
 export function ComparisonSection() {
   return (
-    <section className="py-20 sm:py-32 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/2 right-0 w-96 h-96 bg-accent/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl"></div>
-      </div>
+    <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white dark:bg-gray-950">
+      <div className="max-w-7xl mx-auto">
+        <h2 className="text-4xl sm:text-5xl font-black mb-4">
+          The{' '}
+          <span className="bg-[#ff6b35] text-white px-2 rotate-[-1deg] inline-block">
+            Competition
+          </span>{' '}
+          Tax
+        </h2>
 
-      <div className="relative z-10 max-w-6xl mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-4">
-            <span className="text-blue-600">Why Choose PostPilot?</span>
-          </h2>
-          <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto">
-            Built for creators and teams who want to grow faster. Everything you
-            need to manage, create, and analyze your social presence.
-          </p>
+        <div className="text-xl mb-12 max-w-3xl">
+          Here's what the big guys charge. I'm not saying they're bad... but
+          $99/month for basic scheduling? 🤨
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {benefits.map((benefit, index) => {
-            const Icon = benefit.icon;
-            return (
-              <div
-                key={index}
-                className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:bg-white/15 hover:border-white/30 hover:shadow-lg hover:shadow-primary/20 group"
-              >
-                <div className="mb-4 inline-flex p-3 rounded-xl bg-primary/20 group-hover:bg-primary/30 transition-colors">
-                  <Icon className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="text-lg sm:text-xl font-semibold mb-2 text-foreground">
-                  {benefit.title}
-                </h3>
-                <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-                  {benefit.description}
-                </p>
+        {/* Comparison Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          {competitors.map((competitor, index) => (
+            <div
+              key={index}
+              className="bg-gray-100 dark:bg-gray-900 p-6 border-[3px] border-gray-400 dark:border-gray-700"
+            >
+              <div className="text-2xl font-bold mb-2">{competitor.name}</div>
+              <div className="text-3xl font-black text-red-600 mb-4">
+                {competitor.price}
               </div>
-            );
-          })}
+              <div className="space-y-2">
+                {competitor.cons.map((con, idx) => (
+                  <div key={idx} className="flex items-start gap-2 text-sm">
+                    <span className="text-red-500 font-bold">✗</span>
+                    <span className="text-gray-700 dark:text-gray-300">
+                      {con}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* OutPost Comparison */}
+        <div className="bg-[#4ecdc4] p-8 border-[3px] border-[#1a1a1a] rotate-[-1deg] transform">
+          <div className="rotate-[1deg]">
+            <h3 className="text-3xl font-black mb-4">OutPost (This Thing)</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+              <div>
+                <div className="text-4xl font-black mb-2">$10/mo</div>
+                <div className="text-lg">Pro plan. Actually affordable.</div>
+              </div>
+              <div>
+                <div className="text-4xl font-black mb-2">Your AI</div>
+                <div className="text-lg">
+                  Use your own keys. Control quality.
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-900 p-4 border-[2px] border-[#1a1a1a] font-mono text-sm">
+              <strong>Math:</strong> Hootsuite ($99) - OutPost ($10) ={' '}
+              <span className="bg-[#ffe66d] dark:bg-yellow-500 px-2">
+                $89 saved/month
+              </span>
+              <br />
+              That's $1,068/year. Buy a decent laptop instead. 💻
+            </div>
+          </div>
+        </div>
+
+        {/* Honest Note */}
+        <div className="mt-8 bg-[#ffe66d] dark:bg-yellow-500  p-4 border-l-4 border-[#ff6b35] font-mono text-sm">
+          <strong>📝 Honest note:</strong> These tools aren't terrible. They
+          have big teams, enterprise features, and millions in funding. If you
+          need white-glove support and compliance certifications, go with them.
+          But if you just want to schedule posts and use good AI without
+          breaking the bank? This works.
         </div>
       </div>
     </section>

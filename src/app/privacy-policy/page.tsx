@@ -227,7 +227,7 @@ export default function PrivacyPolicy() {
                     </li>
                     <li>Regular audits and monitoring</li>
                   </ul>
-                  <div className="mt-4 p-4 bg-yellow-50 border-l-4 border-yellow-400">
+                  <div className="mt-4 p-4 bg-yellow-50 border-l-4 border-yellow-500">
                     <p className="text-sm text-yellow-800">
                       Despite these measures, no system is 100% secure; use
                       discretion when sharing personal details online.

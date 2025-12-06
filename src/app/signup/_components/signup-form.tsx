@@ -85,36 +85,47 @@ export const SignupForm = ({
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-      <div className="w-full max-w-sm">
-        <div className="bg-card rounded-2xl shadow-xl border border-border p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">
-              Create Account
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Get started in seconds
-            </p>
-          </div>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[#f5f5f0] dark:bg-gray-950">
+      {/* Back to Home Link */}
+      <Link
+        href="/"
+        className="absolute top-4 left-4 text-[#1a1a1a] dark:text-white font-mono hover:text-[#ff6b35] transition-colors"
+      >
+        ← Back to Home
+      </Link>
 
+      <div className="w-full max-w-md">
+        {/* Header Badge */}
+        <div className="text-center mb-6">
+          <div className="inline-block bg-[#4ecdc4] px-4 py-2 border-[2px] border-[#1a1a1a] font-mono text-sm rotate-[2deg] transform mb-4">
+            ✨ FREE TO START
+          </div>
+          <h1 className="text-4xl font-black mb-2">Create Account</h1>
+          <p className="font-mono text-sm text-gray-600 dark:text-gray-400">
+            Join 200+ creators using OutPost
+          </p>
+        </div>
+
+        {/* Signup Card */}
+        <div className="bg-white dark:bg-gray-900 border-[3px] border-[#1a1a1a] p-8">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
               <FormField
                 control={form.control}
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-foreground text-sm font-medium">
-                      Full name
+                    <FormLabel className="font-mono font-bold text-sm">
+                      FULL NAME
                     </FormLabel>
                     <FormControl>
                       <Input
                         placeholder="Jane Doe"
-                        className="h-11 bg-background border-border text-foreground"
+                        className="h-12 border-[2px] border-[#1a1a1a] font-mono focus:border-[#4ecdc4] focus:ring-[#4ecdc4]"
                         {...field}
                       />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="font-mono text-xs" />
                   </FormItem>
                 )}
               />
@@ -124,18 +135,18 @@ export const SignupForm = ({
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-foreground text-sm font-medium">
-                      Email
+                    <FormLabel className="font-mono font-bold text-sm">
+                      EMAIL
                     </FormLabel>
                     <FormControl>
                       <Input
                         type="email"
                         placeholder="you@example.com"
-                        className="h-11 bg-background border-border text-foreground"
+                        className="h-12 border-[2px] border-[#1a1a1a] font-mono focus:border-[#4ecdc4] focus:ring-[#4ecdc4]"
                         {...field}
                       />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="font-mono text-xs" />
                   </FormItem>
                 )}
               />
@@ -145,56 +156,61 @@ export const SignupForm = ({
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-foreground text-sm font-medium">
-                      Password
+                    <FormLabel className="font-mono font-bold text-sm">
+                      PASSWORD
                     </FormLabel>
                     <FormControl>
                       <PasswordInput
                         placeholder="••••••••"
-                        className="h-11 bg-background border-border text-foreground"
+                        className="h-12 border-[2px] border-[#1a1a1a] font-mono focus:border-[#4ecdc4] focus:ring-[#4ecdc4]"
                         {...field}
                       />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="font-mono text-xs" />
                   </FormItem>
                 )}
               />
 
               {error && (
-                <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3">
-                  <p className="text-sm text-destructive" role="alert">
-                    {error}
+                <div className="bg-red-100 dark:bg-red-900/30 border-[2px] border-red-600 p-3">
+                  <p
+                    className="text-sm font-mono text-red-600 dark:text-red-400"
+                    role="alert"
+                  >
+                    ❌ {error}
                   </p>
                 </div>
               )}
 
               <Button
                 type="submit"
-                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                className="w-full h-12 bg-[#1a1a1a] text-white border-[3px] border-[#1a1a1a] hover:bg-[#4ecdc4] hover:border-[#4ecdc4] font-mono font-bold text-base transition-all"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Creating account...' : 'Sign up'}
+                {isSubmitting ? 'CREATING ACCOUNT...' : 'SIGN UP →'}
               </Button>
             </form>
           </Form>
 
+          {/* Divider */}
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border" />
+              <span className="w-full border-t-[2px] border-[#1a1a1a]" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-3 text-muted-foreground font-medium">
-                Or continue with
+              <span className="bg-white dark:bg-gray-900 px-3 font-mono font-bold">
+                OR CONTINUE WITH
               </span>
             </div>
           </div>
 
+          {/* Google Button */}
           <Button
             variant="outline"
             onClick={() =>
               signIn('google', { callbackUrl: callbackUrl || '/dashboard' })
             }
-            className="w-full h-11 border-border hover:bg-accent text-foreground font-medium rounded-lg transition-colors"
+            className="w-full h-12 border-[2px] border-[#1a1a1a] hover:bg-gray-100 dark:hover:bg-gray-800 font-mono font-bold transition-colors"
           >
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
               <path
@@ -214,17 +230,28 @@ export const SignupForm = ({
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            Google
+            GOOGLE
           </Button>
 
-          <p className="text-center text-sm text-muted-foreground mt-6">
-            Already have an account?{' '}
-            <Link
-              href={`/login?callbackUrl=${callbackUrl}`}
-              className="font-semibold text-primary hover:underline"
-            >
-              Log in
-            </Link>
+          {/* Login Link */}
+          <div className="mt-6 text-center bg-[#f5f5f0] dark:bg-gray-800 p-4 border-l-4 border-[#ff6b35]">
+            <p className="text-sm font-mono">
+              Already have an account?{' '}
+              <Link
+                href={`/login?callbackUrl=${callbackUrl}`}
+                className="font-bold text-[#ff6b35] hover:underline"
+              >
+                Log in →
+              </Link>
+            </p>
+          </div>
+        </div>
+
+        {/* Footer Note */}
+        <div className="mt-6 text-center">
+          <p className="text-xs font-mono text-gray-600 dark:text-gray-400">
+            🎉 Free forever plan • 💳 No credit card required • 🚀 Get started
+            in 30 seconds
           </p>
         </div>
       </div>
